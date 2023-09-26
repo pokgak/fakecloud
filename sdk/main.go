@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"fakecloud/handlers/vm"
 )
+
+type VirtualMachine struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	InstanceType string `json:"instance_type"`
+}
 
 type Client struct {
 	baseURL    string
@@ -21,7 +25,7 @@ func NewClient(baseURL string, username string, password string) *Client {
 	}
 }
 
-func (c *Client) CreateVM(vm *vm.VirtualMachine) error {
+func (c *Client) CreateVM(vm *VirtualMachine) error {
 	body, err := json.Marshal(vm)
 	if err != nil {
 		return err

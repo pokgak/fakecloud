@@ -5,19 +5,14 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pokgak/fakecloud/sdk"
 
 	"fakecloud/database"
 )
 
-type VirtualMachine struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	InstanceType string `json:"instance_type"`
-}
-
 func CreateVirtualMachine(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
-	var vm VirtualMachine
+	var vm sdk.VirtualMachine
 	err := json.NewDecoder(r.Body).Decode(&vm)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -54,11 +49,11 @@ func GetVirtualMachines(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	// Create slice of virtual_machines
-	var virtual_machines []VirtualMachine
+	var virtual_machines []sdk.VirtualMachine
 
 	// Iterate over rows and add virtual_machines to slice
 	for rows.Next() {
-		var vm VirtualMachine
+		var vm sdk.VirtualMachine
 		err := rows.Scan(&vm.ID, &vm.Name, &vm.InstanceType)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,7 +72,7 @@ func GetVirtualMachine(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Get vm from database
-	var vm VirtualMachine
+	var vm sdk.VirtualMachine
 	err := database.GetDB().QueryRow("SELECT id, name, instance_type FROM virtual_machines WHERE id = ?", id).Scan(&vm.ID, &vm.Name, &vm.InstanceType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -94,7 +89,7 @@ func UpdateVirtualMachine(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	// Parse request body
-	var vm VirtualMachine
+	var vm sdk.VirtualMachine
 	err := json.NewDecoder(r.Body).Decode(&vm)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
