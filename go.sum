@@ -1,0 +1,6 @@
+github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
+github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
+github.com/mattn/go-sqlite3 v1.14.17 h1:mCRHCLDUBXgpKAqIKsaAaAsrAlbkeomtRFKXh2L6YIM=
+github.com/mattn/go-sqlite3 v1.14.17/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
+github.com/pokgak/fakecloud/sdk v0.0.0-20230926154923-73097e016d8a h1:0ddjM25QfjjuVr3+Rdo/5hq1/s3VkvTvow9uAS1yQIM=
+github.com/pokgak/fakecloud/sdk v0.0.0-20230926154923-73097e016d8a/go.mod h1:B5/lTa4tk8U91G0gmv6MKK6W5sSRb639LcH2Kkq71CA=
