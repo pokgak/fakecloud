@@ -37,11 +37,11 @@ func main() {
 	router := mux.NewRouter()
 
 	// VirtualMachine
-	router.HandleFunc("/users", vm.CreateVirtualMachine).Methods("POST")
-	router.HandleFunc("/users", vm.GetVirtualMachines).Methods("GET")
-	router.HandleFunc("/users/{id}", vm.GetVirtualMachine).Methods("GET")
-	router.HandleFunc("/users/{id}", vm.UpdateVirtualMachine).Methods("PUT")
-	router.HandleFunc("/users/{id}", vm.DeleteVirtualMachine).Methods("DELETE")
+	router.HandleFunc("/vms", vm.CreateVirtualMachine).Methods("POST")
+	router.HandleFunc("/vms", vm.GetVirtualMachines).Methods("GET")
+	router.HandleFunc("/vms/{id}", vm.GetVirtualMachine).Methods("GET")
+	router.HandleFunc("/vms/{id}", vm.UpdateVirtualMachine).Methods("PUT")
+	router.HandleFunc("/vms/{id}", vm.DeleteVirtualMachine).Methods("DELETE")
 
 	// Start server
 	log.Fatal(http.ListenAndServe(":8000", router))
