@@ -44,5 +44,6 @@ func main() {
 	router.HandleFunc("/vms/{id}", vm.DeleteVirtualMachine).Methods("DELETE")
 
 	// Start server
+	log.Printf("Listening on port 8000")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }

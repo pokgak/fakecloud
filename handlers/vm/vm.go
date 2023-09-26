@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -11,6 +12,8 @@ import (
 )
 
 func CreateVirtualMachine(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received %s request for %s with headers %v", r.Method, r.URL.Path, r.Header)
+
 	// Parse request body
 	var vm sdk.VirtualMachine
 	err := json.NewDecoder(r.Body).Decode(&vm)
@@ -40,6 +43,8 @@ func CreateVirtualMachine(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetVirtualMachines(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received %s request for %s with headers %v", r.Method, r.URL.Path, r.Header)
+
 	// Get all virtual_machines from database
 	rows, err := database.GetDB().Query("SELECT id, name, instance_type FROM virtual_machines")
 	if err != nil {
@@ -67,6 +72,8 @@ func GetVirtualMachines(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetVirtualMachine(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received %s request for %s with headers %v", r.Method, r.URL.Path, r.Header)
+
 	// Get vm ID from URL parameter
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -84,6 +91,8 @@ func GetVirtualMachine(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateVirtualMachine(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received %s request for %s with headers %v", r.Method, r.URL.Path, r.Header)
+
 	// Get vm ID from URL parameter
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -109,6 +118,8 @@ func UpdateVirtualMachine(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteVirtualMachine(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received %s request for %s with headers %v", r.Method, r.URL.Path, r.Header)
+
 	// Get vm ID from URL parameter
 	vars := mux.Vars(r)
 	id := vars["id"]
