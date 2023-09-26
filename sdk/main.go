@@ -49,4 +49,28 @@ func (c *Client) CreateVM(vm *VirtualMachine) error {
 	return nil
 }
 
+func (c *Client) GetVMs() ([]VirtualMachine, error) {
+	req, err := http.NewRequest("GET", c.baseURL+"/vms", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var vms []VirtualMachine
+	if err := json.NewDecoder(resp.Body).Decode(&vms); err != nil {
+		return nil, err
+	}
+
+	return vms, nil
+}
+
 // other CRUD functions...
