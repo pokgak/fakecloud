@@ -18,11 +18,11 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(baseURL string, username string, password string) *Client {
+func NewClient(baseURL string, username string, password string) (*Client, error) {
 	return &Client{
 		baseURL:    baseURL,
 		httpClient: &http.Client{},
-	}
+	}, nil
 }
 
 func (c *Client) CreateVM(vm *VirtualMachine) error {
