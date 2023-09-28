@@ -25,28 +25,32 @@ func NewClient(baseURL string, username string, password string) (*Client, error
 	}, nil
 }
 
-func (c *Client) CreateVM(vm *VirtualMachine) error {
+func (c *Client) CreateVM(vm *VirtualMachine) (VirtualMachine, error) {	
 	body, err := json.Marshal(vm)
 	if err != nil {
-		return err
+		return *vm, err
 	}
 
 	req, err := http.NewRequest("POST", c.baseURL+"/vms", bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return *vm, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return *vm, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return *vm, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	return nil
+	if err := json.NewDecoder(resp.Body).Decode(&vm); err != nil {
+		return *vm, err
+	}
+
+	return *vm, nil
 }
 
 func (c *Client) GetVMs() ([]VirtualMachine, error) {
@@ -98,4 +102,55 @@ func (c *Client) GetVM(id int) (VirtualMachine, error) {
 	return vm, nil
 }
 
-// other CRUD functions...
+func (c *Client) UpdateVM(id int, name string, instanceType string) error {
+	vm := VirtualMachine{
+		ID:           id,
+		Name:         name,
+		InstanceType: instanceType,
+	}
+
+	body, err := json.Marshal(vm)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", c.baseURL+"/vms/"+fmt.Sprint(id), bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	// Set the Content-Type header to "application/json"
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteVM(id int) error {
+	req, err := http.NewRequest("DELETE", c.baseURL+"/vms/"+fmt.Sprint(id), nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
