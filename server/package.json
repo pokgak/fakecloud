@@ -1,0 +1,15 @@
+{
+  "name": "fakecloud-server",
+  "private": true,
+  "description": "fakecloud API + dashboard — one codebase for local dev (wrangler dev) and Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.0.0"
+  }
+}

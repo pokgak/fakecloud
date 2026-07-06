@@ -5,8 +5,9 @@ is refereed by the server: X always starts, turns alternate, and the board
 locks once someone completes a line. Applying out of turn *fails with the
 referee's reason* — a failed apply just means "wait for your opponent".
 
-Grab a friend pointing at the same fakecloud (or two terminals), keep the
-dashboard open, and play one `terraform apply` at a time.
+Grab a friend and share your playground with them — the sandbox id in your
+provider block is the invitation (or just use two terminals yourself). Keep
+the dashboard open and play one `terraform apply` at a time.
 
 Cells: `0 1 2` / `3 4 5` / `6 7 8`.
 

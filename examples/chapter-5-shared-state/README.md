@@ -3,8 +3,9 @@
 Every workspace has its own state file, and each state file believes it owns
 the resources in it. Nothing stops TWO state files from both claiming the
 same real object — and that's when coworkers start ruining each other's
-afternoons. You're going to stage that fight on purpose: grab a friend, or
-be both players yourself in two terminals.
+afternoons. You're going to stage that fight on purpose: grab a friend (both
+players use the SAME sandbox id — that's the point), or be both players
+yourself in two terminals.
 
 The weapon is the **nameplate** 🪧 — `fakecloud_nameplate`, a plaque that
 hangs on a board (`board_id` + `text`, one per board). It's the only

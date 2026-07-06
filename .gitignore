@@ -33,3 +33,7 @@ fakecloud.db
 # local binaries
 /server/fakecloud
 /provider/terraform-provider-fakecloud
+
+# Cloudflare Workers dev
+server/node_modules/
+server/.wrangler/

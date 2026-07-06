@@ -1,8 +1,10 @@
 # Chapter 1 — Terraform basics
 
-Run the fakecloud server (`cd server && go run .`) and open
-<http://localhost:8000> next to your terminal. Everything you do here changes
-real state you can watch there.
+Get yourself a playground: open the hosted fakecloud (see the repo README),
+sign in with GitHub, click **+ new playground**, and keep its dashboard open
+next to your terminal. Everything you do here changes real state you can
+watch there. (Prefer offline? `cd server && npm install && npx wrangler dev`
+runs the identical thing at <http://localhost:8787>, no sign-in needed.)
 
 You'll write all the Terraform yourself — this course gives you hints, not
 answers. (An answer key lives on the `solutions` branch if you're truly
@@ -10,10 +12,11 @@ stuck, but the marks you draw yourself stick better.)
 
 ## Missions
 
-**1. Point Terraform at fakecloud.**
-`main.tf` already declares the provider's *source*. Add a `provider`
-block that configures it — the only setting is `endpoint`, and the server
-prints the URL when it starts.
+**1. Point Terraform at your playground.**
+`main.tf` already declares the provider's *source*. Add a `provider` block
+that configures it: a `sandbox` (your playground id — the dashboard's
+"Connect Terraform" panel shows it), and an `endpoint` only if you're not
+using the hosted default (locally that's `http://localhost:8787`).
 
 **2. Create a board.**
 The resource type is `fakecloud_tictactoe_board`, and it needs one argument:

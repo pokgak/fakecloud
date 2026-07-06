@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fakecloud",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+
+  // Landing page + dashboard are static assets; the Worker handles
+  // everything under /s/:sandbox and /sandboxes.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // One Durable Object per sandbox: a single-threaded referee with
+  // persistent, strongly consistent storage — the same semantics the old
+  // in-memory Go store had, but isolated per tenant and durable.
+  "durable_objects": {
+    "bindings": [
+      { "name": "SANDBOX", "class_name": "Sandbox" },
+      { "name": "ACCOUNT", "class_name": "Account" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Sandbox", "Account"] }],
+
+  // Hosted: GitHub login is required to create playgrounds. Set the OAuth
+  // app's client id here, and the secrets via:
+  //   wrangler secret put GITHUB_CLIENT_SECRET
+  //   wrangler secret put SESSION_SECRET      (any long random string)
+  // The OAuth app's callback URL is https://<your-host>/auth/callback.
+  // Local dev: .dev.vars flips REQUIRE_AUTH to false — no GitHub needed.
+  "vars": {
+    "REQUIRE_AUTH": "true",
+    "GITHUB_CLIENT_ID": "set-me"
+  },
+
+  "observability": { "enabled": true }
+}
