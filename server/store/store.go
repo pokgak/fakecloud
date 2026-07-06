@@ -23,119 +23,57 @@ type ValidationError struct{ Reason string }
 
 func (e ValidationError) Error() string { return e.Reason }
 
-type VM struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	InstanceType string `json:"instance_type"`
-}
+// Board modes.
+//
+// In freeplay anyone can mark any empty cell at any time — this is the mode
+// the Terraform lessons use, since e.g. a count over five cells creates five
+// moves in one apply. In duel mode the server referees a real game: X starts,
+// turns alternate, and the board locks once someone wins.
+const (
+	ModeFreeplay = "freeplay"
+	ModeDuel     = "duel"
+)
 
 type Move struct {
 	ID       int    `json:"id"`
-	GameID   int    `json:"game_id"`
+	BoardID  int    `json:"board_id"`
 	Player   string `json:"player"`
 	Position int    `json:"position"`
 }
 
-type Game struct {
+type Board struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
-	// Board has 9 cells, row by row; each is "", "X", or "O". Board,
-	// NextPlayer, Winner, and Moves are derived from the game's moves.
-	Board      []string `json:"board"`
+	Mode string `json:"mode"`
+	// Cells has 9 entries, row by row; each is "", "X", or "O". Cells,
+	// NextPlayer, Winner, and Moves are derived from the board's moves.
+	Cells      []string `json:"cells"`
 	NextPlayer string   `json:"next_player"`
 	Winner     string   `json:"winner"`
 	Moves      []Move   `json:"moves"`
 }
 
+type boardMeta struct {
+	name string
+	mode string
+}
+
 type Store struct {
-	mu         sync.Mutex
-	nextVMID   int
-	nextGameID int
-	nextMoveID int
-	vms        map[int]VM
-	games      map[int]string // id -> name
-	moves      map[int]Move
+	mu          sync.Mutex
+	nextBoardID int
+	nextMoveID  int
+	boards      map[int]boardMeta
+	moves       map[int]Move
 }
 
 func New() *Store {
 	return &Store{
-		nextVMID:   1,
-		nextGameID: 1,
-		nextMoveID: 1,
-		vms:        map[int]VM{},
-		games:      map[int]string{},
-		moves:      map[int]Move{},
+		nextBoardID: 1,
+		nextMoveID:  1,
+		boards:      map[int]boardMeta{},
+		moves:       map[int]Move{},
 	}
 }
-
-// --- VMs ---
-
-func (s *Store) CreateVM(name, instanceType string) (VM, error) {
-	if name == "" {
-		return VM{}, ValidationError{"name is required"}
-	}
-	if instanceType == "" {
-		return VM{}, ValidationError{"instance_type is required"}
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	vm := VM{ID: s.nextVMID, Name: name, InstanceType: instanceType}
-	s.nextVMID++
-	s.vms[vm.ID] = vm
-	return vm, nil
-}
-
-func (s *Store) ListVMs() []VM {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	vms := make([]VM, 0, len(s.vms))
-	for _, vm := range s.vms {
-		vms = append(vms, vm)
-	}
-	sort.Slice(vms, func(i, j int) bool { return vms[i].ID < vms[j].ID })
-	return vms
-}
-
-func (s *Store) GetVM(id int) (VM, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	vm, ok := s.vms[id]
-	if !ok {
-		return VM{}, ErrNotFound
-	}
-	return vm, nil
-}
-
-func (s *Store) UpdateVM(id int, name, instanceType string) (VM, error) {
-	if name == "" {
-		return VM{}, ValidationError{"name is required"}
-	}
-	if instanceType == "" {
-		return VM{}, ValidationError{"instance_type is required"}
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	vm, ok := s.vms[id]
-	if !ok {
-		return VM{}, ErrNotFound
-	}
-	vm.Name = name
-	vm.InstanceType = instanceType
-	s.vms[id] = vm
-	return vm, nil
-}
-
-func (s *Store) DeleteVM(id int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.vms[id]; !ok {
-		return ErrNotFound
-	}
-	delete(s.vms, id)
-	return nil
-}
-
-// --- Tic-tac-toe ---
 
 var winningLines = [8][3]int{
 	{0, 1, 2}, {3, 4, 5}, {6, 7, 8},
@@ -143,95 +81,105 @@ var winningLines = [8][3]int{
 	{0, 4, 8}, {2, 4, 6},
 }
 
-// gameState derives board, next player, winner, and ordered moves.
+// boardState derives cells, next player, winner, and ordered moves.
 // Caller must hold s.mu.
-func (s *Store) gameState(gameID int) Game {
-	game := Game{ID: gameID, Name: s.games[gameID], Board: make([]string, 9), Moves: []Move{}}
+func (s *Store) boardState(boardID int) Board {
+	meta := s.boards[boardID]
+	board := Board{ID: boardID, Name: meta.name, Mode: meta.mode, Cells: make([]string, 9), Moves: []Move{}}
 	for _, move := range s.moves {
-		if move.GameID == gameID {
-			game.Board[move.Position] = move.Player
-			game.Moves = append(game.Moves, move)
+		if move.BoardID == boardID {
+			board.Cells[move.Position] = move.Player
+			board.Moves = append(board.Moves, move)
 		}
 	}
-	sort.Slice(game.Moves, func(i, j int) bool { return game.Moves[i].ID < game.Moves[j].ID })
+	sort.Slice(board.Moves, func(i, j int) bool { return board.Moves[i].ID < board.Moves[j].ID })
 
 	for _, line := range winningLines {
-		if game.Board[line[0]] != "" && game.Board[line[0]] == game.Board[line[1]] && game.Board[line[1]] == game.Board[line[2]] {
-			game.Winner = game.Board[line[0]]
+		if board.Cells[line[0]] != "" && board.Cells[line[0]] == board.Cells[line[1]] && board.Cells[line[1]] == board.Cells[line[2]] {
+			board.Winner = board.Cells[line[0]]
+			break
 		}
 	}
-	if game.Winner == "" && len(game.Moves) == 9 {
-		game.Winner = "draw"
+	if board.Winner == "" && len(board.Moves) == 9 {
+		board.Winner = "draw"
 	}
-	if game.Winner == "" {
+
+	// Turn order only means something in a refereed duel.
+	if meta.mode == ModeDuel && board.Winner == "" {
 		// X always starts; whoever has fewer marks on the board goes next.
 		countX := 0
-		for _, cell := range game.Board {
+		for _, cell := range board.Cells {
 			if cell == "X" {
 				countX++
 			}
 		}
-		if countX == len(game.Moves)-countX {
-			game.NextPlayer = "X"
+		if countX == len(board.Moves)-countX {
+			board.NextPlayer = "X"
 		} else {
-			game.NextPlayer = "O"
+			board.NextPlayer = "O"
 		}
 	}
-	return game
+	return board
 }
 
-func (s *Store) CreateGame(name string) (Game, error) {
+func (s *Store) CreateBoard(name, mode string) (Board, error) {
 	if name == "" {
-		return Game{}, ValidationError{"name is required"}
+		return Board{}, ValidationError{"name is required"}
+	}
+	if mode == "" {
+		mode = ModeFreeplay
+	}
+	if mode != ModeFreeplay && mode != ModeDuel {
+		return Board{}, ValidationError{`mode must be "freeplay" or "duel"`}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	id := s.nextGameID
-	s.nextGameID++
-	s.games[id] = name
-	return s.gameState(id), nil
+	id := s.nextBoardID
+	s.nextBoardID++
+	s.boards[id] = boardMeta{name: name, mode: mode}
+	return s.boardState(id), nil
 }
 
-func (s *Store) ListGames() []Game {
+func (s *Store) ListBoards() []Board {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ids := make([]int, 0, len(s.games))
-	for id := range s.games {
+	ids := make([]int, 0, len(s.boards))
+	for id := range s.boards {
 		ids = append(ids, id)
 	}
 	sort.Ints(ids)
-	games := make([]Game, 0, len(ids))
+	boards := make([]Board, 0, len(ids))
 	for _, id := range ids {
-		games = append(games, s.gameState(id))
+		boards = append(boards, s.boardState(id))
 	}
-	return games
+	return boards
 }
 
-func (s *Store) GetGame(id int) (Game, error) {
+func (s *Store) GetBoard(id int) (Board, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.games[id]; !ok {
-		return Game{}, ErrNotFound
+	if _, ok := s.boards[id]; !ok {
+		return Board{}, ErrNotFound
 	}
-	return s.gameState(id), nil
+	return s.boardState(id), nil
 }
 
-func (s *Store) DeleteGame(id int) error {
+func (s *Store) DeleteBoard(id int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.games[id]; !ok {
+	if _, ok := s.boards[id]; !ok {
 		return ErrNotFound
 	}
-	delete(s.games, id)
+	delete(s.boards, id)
 	for moveID, move := range s.moves {
-		if move.GameID == id {
+		if move.BoardID == id {
 			delete(s.moves, moveID)
 		}
 	}
 	return nil
 }
 
-func (s *Store) CreateMove(gameID int, player string, position int) (Move, error) {
+func (s *Store) CreateMove(boardID int, player string, position int) (Move, error) {
 	if player != "X" && player != "O" {
 		return Move{}, ValidationError{`player must be "X" or "O"`}
 	}
@@ -240,20 +188,23 @@ func (s *Store) CreateMove(gameID int, player string, position int) (Move, error
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.games[gameID]; !ok {
+	meta, ok := s.boards[boardID]
+	if !ok {
 		return Move{}, ErrNotFound
 	}
-	game := s.gameState(gameID)
-	if game.Winner != "" {
-		return Move{}, ConflictError{"game is already over"}
+	board := s.boardState(boardID)
+	if board.Cells[position] != "" {
+		return Move{}, ConflictError{fmt.Sprintf("position %d is already taken by %s", position, board.Cells[position])}
 	}
-	if game.Board[position] != "" {
-		return Move{}, ConflictError{fmt.Sprintf("position %d is already taken by %s", position, game.Board[position])}
+	if meta.mode == ModeDuel {
+		if board.Winner != "" {
+			return Move{}, ConflictError{"game is already over"}
+		}
+		if player != board.NextPlayer {
+			return Move{}, ConflictError{fmt.Sprintf("not %s's turn, it is %s's turn", player, board.NextPlayer)}
+		}
 	}
-	if player != game.NextPlayer {
-		return Move{}, ConflictError{fmt.Sprintf("not %s's turn, it is %s's turn", player, game.NextPlayer)}
-	}
-	move := Move{ID: s.nextMoveID, GameID: gameID, Player: player, Position: position}
+	move := Move{ID: s.nextMoveID, BoardID: boardID, Player: player, Position: position}
 	s.nextMoveID++
 	s.moves[move.ID] = move
 	return move, nil

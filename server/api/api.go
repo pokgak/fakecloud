@@ -20,16 +20,10 @@ func New(s *store.Store) *API {
 }
 
 func (a *API) Register(mux *http.ServeMux) {
-	mux.HandleFunc("POST /vms", a.createVM)
-	mux.HandleFunc("GET /vms", a.listVMs)
-	mux.HandleFunc("GET /vms/{id}", a.getVM)
-	mux.HandleFunc("PUT /vms/{id}", a.updateVM)
-	mux.HandleFunc("DELETE /vms/{id}", a.deleteVM)
-
-	mux.HandleFunc("POST /tictactoe/games", a.createGame)
-	mux.HandleFunc("GET /tictactoe/games", a.listGames)
-	mux.HandleFunc("GET /tictactoe/games/{id}", a.getGame)
-	mux.HandleFunc("DELETE /tictactoe/games/{id}", a.deleteGame)
+	mux.HandleFunc("POST /tictactoe/boards", a.createBoard)
+	mux.HandleFunc("GET /tictactoe/boards", a.listBoards)
+	mux.HandleFunc("GET /tictactoe/boards/{id}", a.getBoard)
+	mux.HandleFunc("DELETE /tictactoe/boards/{id}", a.deleteBoard)
 
 	mux.HandleFunc("POST /tictactoe/moves", a.createMove)
 	mux.HandleFunc("GET /tictactoe/moves/{id}", a.getMove)
@@ -70,115 +64,46 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-// --- VMs ---
-
-func (a *API) createVM(w http.ResponseWriter, r *http.Request) {
+func (a *API) createBoard(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s %s", r.Method, r.URL.Path)
-	var req store.VM
+	var req store.Board
 	if !decode(w, r, &req) {
 		return
 	}
-	vm, err := a.store.CreateVM(req.Name, req.InstanceType)
+	board, err := a.store.CreateBoard(req.Name, req.Mode)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, vm)
+	writeJSON(w, http.StatusCreated, board)
 }
 
-func (a *API) listVMs(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, a.store.ListVMs())
+func (a *API) listBoards(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, a.store.ListBoards())
 }
 
-func (a *API) getVM(w http.ResponseWriter, r *http.Request) {
+func (a *API) getBoard(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		writeError(w, store.ErrNotFound)
 		return
 	}
-	vm, err := a.store.GetVM(id)
+	board, err := a.store.GetBoard(id)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, vm)
+	writeJSON(w, http.StatusOK, board)
 }
 
-func (a *API) updateVM(w http.ResponseWriter, r *http.Request) {
+func (a *API) deleteBoard(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s %s", r.Method, r.URL.Path)
 	id, err := pathID(r)
 	if err != nil {
 		writeError(w, store.ErrNotFound)
 		return
 	}
-	var req store.VM
-	if !decode(w, r, &req) {
-		return
-	}
-	vm, err := a.store.UpdateVM(id, req.Name, req.InstanceType)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, vm)
-}
-
-func (a *API) deleteVM(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.Path)
-	id, err := pathID(r)
-	if err != nil {
-		writeError(w, store.ErrNotFound)
-		return
-	}
-	if err := a.store.DeleteVM(id); err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
-
-// --- Tic-tac-toe ---
-
-func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.Path)
-	var req store.Game
-	if !decode(w, r, &req) {
-		return
-	}
-	game, err := a.store.CreateGame(req.Name)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, game)
-}
-
-func (a *API) listGames(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, a.store.ListGames())
-}
-
-func (a *API) getGame(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r)
-	if err != nil {
-		writeError(w, store.ErrNotFound)
-		return
-	}
-	game, err := a.store.GetGame(id)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, game)
-}
-
-func (a *API) deleteGame(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.Path)
-	id, err := pathID(r)
-	if err != nil {
-		writeError(w, store.ErrNotFound)
-		return
-	}
-	if err := a.store.DeleteGame(id); err != nil {
+	if err := a.store.DeleteBoard(id); err != nil {
 		writeError(w, err)
 		return
 	}
@@ -191,7 +116,7 @@ func (a *API) createMove(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	move, err := a.store.CreateMove(req.GameID, req.Player, req.Position)
+	move, err := a.store.CreateMove(req.BoardID, req.Player, req.Position)
 	if err != nil {
 		writeError(w, err)
 		return

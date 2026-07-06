@@ -34,23 +34,18 @@ func IsNotFound(err error) bool {
 	return ok && apiErr.StatusCode == http.StatusNotFound
 }
 
-type VM struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	InstanceType string `json:"instance_type"`
-}
-
-type Game struct {
+type Board struct {
 	ID         int64    `json:"id"`
 	Name       string   `json:"name"`
-	Board      []string `json:"board"`
+	Mode       string   `json:"mode"`
+	Cells      []string `json:"cells"`
 	NextPlayer string   `json:"next_player"`
 	Winner     string   `json:"winner"`
 }
 
 type Move struct {
 	ID       int64  `json:"id"`
-	GameID   int64  `json:"game_id"`
+	BoardID  int64  `json:"board_id"`
 	Player   string `json:"player"`
 	Position int64  `json:"position"`
 }
@@ -99,47 +94,25 @@ func (c *Client) do(method, path string, body, out any) error {
 	return nil
 }
 
-func (c *Client) CreateVM(name, instanceType string) (VM, error) {
-	var vm VM
-	err := c.do("POST", "/vms", VM{Name: name, InstanceType: instanceType}, &vm)
-	return vm, err
+func (c *Client) CreateBoard(name, mode string) (Board, error) {
+	var board Board
+	err := c.do("POST", "/tictactoe/boards", Board{Name: name, Mode: mode}, &board)
+	return board, err
 }
 
-func (c *Client) GetVM(id int64) (VM, error) {
-	var vm VM
-	err := c.do("GET", fmt.Sprintf("/vms/%d", id), nil, &vm)
-	return vm, err
+func (c *Client) GetBoard(id int64) (Board, error) {
+	var board Board
+	err := c.do("GET", fmt.Sprintf("/tictactoe/boards/%d", id), nil, &board)
+	return board, err
 }
 
-func (c *Client) UpdateVM(id int64, name, instanceType string) (VM, error) {
-	var vm VM
-	err := c.do("PUT", fmt.Sprintf("/vms/%d", id), VM{Name: name, InstanceType: instanceType}, &vm)
-	return vm, err
+func (c *Client) DeleteBoard(id int64) error {
+	return c.do("DELETE", fmt.Sprintf("/tictactoe/boards/%d", id), nil, nil)
 }
 
-func (c *Client) DeleteVM(id int64) error {
-	return c.do("DELETE", fmt.Sprintf("/vms/%d", id), nil, nil)
-}
-
-func (c *Client) CreateGame(name string) (Game, error) {
-	var game Game
-	err := c.do("POST", "/tictactoe/games", Game{Name: name}, &game)
-	return game, err
-}
-
-func (c *Client) GetGame(id int64) (Game, error) {
-	var game Game
-	err := c.do("GET", fmt.Sprintf("/tictactoe/games/%d", id), nil, &game)
-	return game, err
-}
-
-func (c *Client) DeleteGame(id int64) error {
-	return c.do("DELETE", fmt.Sprintf("/tictactoe/games/%d", id), nil, nil)
-}
-
-func (c *Client) CreateMove(gameID int64, player string, position int64) (Move, error) {
+func (c *Client) CreateMove(boardID int64, player string, position int64) (Move, error) {
 	var move Move
-	err := c.do("POST", "/tictactoe/moves", Move{GameID: gameID, Player: player, Position: position}, &move)
+	err := c.do("POST", "/tictactoe/moves", Move{BoardID: boardID, Player: player, Position: position}, &move)
 	return move, err
 }
 

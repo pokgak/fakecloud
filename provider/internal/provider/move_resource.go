@@ -2,9 +2,12 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -17,8 +20,9 @@ import (
 )
 
 var (
-	_ resource.Resource              = &moveResource{}
-	_ resource.ResourceWithConfigure = &moveResource{}
+	_ resource.Resource                = &moveResource{}
+	_ resource.ResourceWithConfigure   = &moveResource{}
+	_ resource.ResourceWithImportState = &moveResource{}
 )
 
 type moveResource struct {
@@ -31,7 +35,7 @@ func NewMoveResource() resource.Resource {
 
 type moveModel struct {
 	ID       types.Int64  `tfsdk:"id"`
-	GameID   types.Int64  `tfsdk:"game_id"`
+	BoardID  types.Int64  `tfsdk:"board_id"`
 	Player   types.String `tfsdk:"player"`
 	Position types.Int64  `tfsdk:"position"`
 }
@@ -42,8 +46,8 @@ func (r *moveResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *moveResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A single tic-tac-toe move. Creating it plays the move; destroying it takes the move back. " +
-			"The server rejects the apply if it is not your turn or the cell is taken.",
+		Description: "A mark on a board. Creating it plays the move; destroying it takes the move back. " +
+			"On a duel board the server also rejects the apply if it is not your turn.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed:    true,
@@ -52,16 +56,16 @@ func (r *moveResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
-			"game_id": schema.Int64Attribute{
+			"board_id": schema.Int64Attribute{
 				Required:    true,
-				Description: "The game this move belongs to.",
+				Description: "The board this move belongs to.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"player": schema.StringAttribute{
 				Required:    true,
-				Description: `"X" or "O". X always starts.`,
+				Description: `"X" or "O". On a duel board, X always starts.`,
 				Validators: []validator.String{
 					stringvalidator.OneOf("X", "O"),
 				},
@@ -97,7 +101,7 @@ func (r *moveResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	move, err := r.client.CreateMove(plan.GameID.ValueInt64(), plan.Player.ValueString(), plan.Position.ValueInt64())
+	move, err := r.client.CreateMove(plan.BoardID.ValueInt64(), plan.Player.ValueString(), plan.Position.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError("Move rejected", err.Error())
 		return
@@ -117,7 +121,8 @@ func (r *moveResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	move, err := r.client.GetMove(state.ID.ValueInt64())
 	if err != nil {
 		if client.IsNotFound(err) {
-			// Move gone — e.g. the game was deleted for a rematch.
+			// Move gone — e.g. removed in the dashboard, or the board
+			// was deleted. Drift: the next plan will offer to replay it.
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -125,7 +130,7 @@ func (r *moveResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	state.GameID = types.Int64Value(move.GameID)
+	state.BoardID = types.Int64Value(move.BoardID)
 	state.Player = types.StringValue(move.Player)
 	state.Position = types.Int64Value(move.Position)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
@@ -146,4 +151,15 @@ func (r *moveResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if err := r.client.DeleteMove(state.ID.ValueInt64()); err != nil && !client.IsNotFound(err) {
 		resp.Diagnostics.AddError("Failed to delete move", err.Error())
 	}
+}
+
+// ImportState lets you adopt a mark made outside Terraform (e.g. by clicking
+// a cell on the dashboard): terraform import fakecloud_tictactoe_move.NAME ID
+func (r *moveResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	id, err := strconv.ParseInt(req.ID, 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid import ID", fmt.Sprintf("expected a numeric move id, got %q", req.ID))
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }

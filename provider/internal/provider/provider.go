@@ -70,14 +70,13 @@ func (p *fakecloudProvider) Configure(ctx context.Context, req provider.Configur
 
 func (p *fakecloudProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewVMResource,
-		NewGameResource,
+		NewBoardResource,
 		NewMoveResource,
 	}
 }
 
 func (p *fakecloudProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewGameDataSource,
+		NewBoardDataSource,
 	}
 }
