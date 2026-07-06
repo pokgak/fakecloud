@@ -53,24 +53,10 @@ cd server && npm install && npx wrangler dev
 
 …then open <http://localhost:8787> — no sign-in needed locally.
 
-**2. Build the provider** and tell Terraform to use your local build via a
-[dev override](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides):
-
-```sh
-cd provider && go build -o ~/go/bin/terraform-provider-fakecloud .
-```
-
-```hcl
-# ~/.terraformrc
-provider_installation {
-  dev_overrides {
-    "pokgak/fakecloud" = "/home/YOU/go/bin"   # dir containing the binary
-  }
-  direct {}
-}
-```
-
-**3. Start chapter 1** (skip `terraform init` — dev overrides don't need it):
+**2. Start chapter 1.** No provider setup needed — the provider is
+[published on the Terraform Registry](https://registry.terraform.io/providers/pokgak/fakecloud/latest),
+so `terraform init` fetches it automatically (that's chapter 1's first
+mission):
 
 ```sh
 cd examples/chapter-1-basics
@@ -83,10 +69,13 @@ cd examples/chapter-1-basics
 | Directory   | What it is |
 |-------------|------------|
 | `server/`   | The fakecloud platform: a Cloudflare Worker (TypeScript) serving the API, dashboard, and landing page. One Durable Object per playground — a single-threaded referee with durable state. `wrangler dev` runs the identical code locally. |
-| `provider/` | `terraform-provider-fakecloud`, built on terraform-plugin-framework (Go). |
 | `examples/` | The course. |
 
-The provider ships three resources and a data source:
+The Terraform provider lives in its own repo,
+[terraform-provider-fakecloud](https://github.com/pokgak/terraform-provider-fakecloud),
+and is published on the registry as
+[`pokgak/fakecloud`](https://registry.terraform.io/providers/pokgak/fakecloud/latest).
+It ships three resources and a data source:
 
 - `fakecloud_tictactoe_board` (resource + data source) — `name`, `mode`
   (`freeplay` default, or `duel`); computed `cells`, `next_player`, `winner`,
@@ -137,8 +126,9 @@ Then, to enable GitHub sign-in on your deployment:
    npx wrangler secret put SESSION_SECRET     # any long random string
    ```
 
-3. Update `DefaultEndpoint` in `provider/internal/provider/provider.go` to
-   your worker's URL so learners get your deployment by default.
+3. If your worker URL differs from the default, update `DefaultEndpoint` in
+   [terraform-provider-fakecloud](https://github.com/pokgak/terraform-provider-fakecloud)
+   (`internal/provider/provider.go`) and cut a provider release.
 
 Auth gates playground *creation* only; the per-playground API is
 authenticated by the unguessable sandbox id, so the Terraform provider never
