@@ -23,9 +23,8 @@ Create `modules/glyph/` with the classic three files:
 **2. Call it.**
 In this directory's `main.tf`, a single `module` block with
 `source = "./modules/glyph"`. A smiley is `cells = [0, 2, 6, 7, 8]`. Local
-modules need installing: run `terraform get` first (`terraform init` would
-also try to download the dev-override provider from the registry and fail —
-`get` installs modules only). Then apply: one block, six resources.
+modules need installing — `terraform init` does that too (notice its
+"Initializing modules..." line). Then apply: one block, six resources.
 Look at their addresses in `terraform state list`.
 
 **3. A gallery.**
@@ -37,7 +36,7 @@ individual instance's output with `module.<name>["<key>"]`.
 
 **4. The rename footgun.**
 Rename your mission-2 module block (and its references), run
-`terraform get` again (installs are per-block-name), and plan. Read it: the
+`terraform init` again (module installs are per-block-name), and plan. Read it: the
 module name is part of every resource's address, so Terraform wants to
 destroy and recreate all of them. The cure is a `moved` block —
 `from`/`to` at the module address level. Add one and re-plan.

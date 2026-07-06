@@ -4,7 +4,8 @@
 terraform {
   required_providers {
     fakecloud = {
-      source = "pokgak/fakecloud"
+      source  = "pokgak/fakecloud"
+      version = "~> 0.3"
     }
   }
 }
