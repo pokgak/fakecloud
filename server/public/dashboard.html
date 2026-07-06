@@ -70,6 +70,12 @@
   }
   #conn.ok { color: var(--green); border-color: var(--green); }
   #conn.bad { color: var(--red); border-color: var(--red); }
+  .sandbox-chip {
+    font-size: 12px; font-family: var(--mono); color: var(--muted);
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  }
+  .sandbox-chip b { color: var(--accent); }
+  .copybtn { margin-top: 8px; }
 
   main {
     display: grid; grid-template-columns: 1fr 420px; gap: 20px;
@@ -205,8 +211,9 @@
 <body>
 
 <header>
-  <div class="logo">fake<span>cloud</span></div>
+  <a href="/" style="text-decoration:none"><div class="logo">fake<span>cloud</span></div></a>
   <div class="tagline">learn Terraform on a tic-tac-toe board — this console shows the real state of your cloud, live</div>
+  <div class="sandbox-chip" id="sandbox-chip"></div>
   <div id="conn">connecting…</div>
 </header>
 
@@ -222,6 +229,17 @@
     <div class="panel">
       <h2>State activity</h2>
       <div id="feed"><div class="hint">Waiting for changes… run <b>terraform apply</b> and watch this feed.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Connect Terraform</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6">
+        This playground is yours: everything the provider does with the block below lands
+        on this page. The sandbox id is the key — share it only with a duel opponent.
+      </p>
+      <pre class="code" id="provider-block"></pre>
+      <button class="copybtn" onclick="copyProvider()">copy</button>
+      <span id="copied" style="font-size:12px;color:var(--green);display:none"> copied!</span>
     </div>
 
     <div class="panel">
@@ -310,6 +328,8 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+const SANDBOX = location.pathname.split('/')[2];
+const API = `/s/${SANDBOX}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // sanitize a name into a valid terraform label for the snippets
@@ -322,7 +342,7 @@ const pickedMark = {};        // per-board mark selection for freeplay clicks
 
 async function tick() {
   try {
-    const boards = await fetch('/tictactoe/boards').then(r => r.json()) || [];
+    const boards = await fetch(API + '/tictactoe/boards').then(r => r.json()) || [];
     $('conn').textContent = 'connected';
     $('conn').className = 'ok';
     if (prev) diff(prev, boards);
@@ -335,6 +355,19 @@ async function tick() {
 }
 setInterval(tick, 2000);
 tick();
+
+$('sandbox-chip').innerHTML = `sandbox <b>${esc(SANDBOX)}</b>`;
+const providerHCL = `provider "fakecloud" {
+  endpoint = "${location.origin}"
+  sandbox  = "${SANDBOX}"
+}`;
+$('provider-block').textContent = providerHCL;
+function copyProvider() {
+  navigator.clipboard.writeText(providerHCL).then(() => {
+    $('copied').style.display = 'inline';
+    setTimeout(() => $('copied').style.display = 'none', 1500);
+  });
+}
 
 // ---------- diff → activity feed ----------
 
@@ -474,7 +507,7 @@ function pickMark(boardId, mark) {
 // ---------- out-of-band actions (the drift machine) ----------
 
 async function apiCall(method, path, body) {
-  const resp = await fetch(path, {
+  const resp = await fetch(API + path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,

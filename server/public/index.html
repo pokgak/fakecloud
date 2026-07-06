@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fakecloud — learn Terraform on a tic-tac-toe board</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1116; --panel: #161b24; --panel-2: #1c2330; --border: #2a3342;
+    --text: #dce3ee; --muted: #8b98ac; --accent: #a06cd5; --accent-2: #7b42bc;
+    --green: #4cc38a; --red: #e06c75;
+    --code-bg: #0a0d12; --code-text: #c5cede;
+    --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f8; --panel: #ffffff; --panel-2: #edeff4; --border: #d7dce5;
+      --text: #21293a; --muted: #5e6a7e; --accent: #7b42bc; --accent-2: #7b42bc;
+      --green: #14804a; --red: #c2333c;
+      --code-bg: #f7f5fb; --code-text: #333a48;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  main { max-width: 660px; width: 100%; padding: 48px 24px; }
+  .logo { font-family: var(--mono); font-weight: 700; font-size: 34px; color: var(--accent); }
+  .logo span { color: var(--text); }
+  .tagline { color: var(--muted); font-size: 16px; margin: 10px 0 30px; line-height: 1.6; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px; margin-bottom: 20px;
+  }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 14px; }
+  button, .btn {
+    display: inline-block; background: var(--accent-2); color: #fff; text-decoration: none;
+    border: 1px solid var(--accent-2); border-radius: 8px;
+    padding: 9px 18px; font-size: 14.5px; cursor: pointer;
+  }
+  button.quiet, .btn.quiet { background: var(--panel-2); color: var(--text); border-color: var(--border); }
+  button.quiet:hover { border-color: var(--accent); }
+  button.danger { background: transparent; color: var(--muted); border-color: var(--border); padding: 4px 10px; font-size: 12px; }
+  button.danger:hover { color: var(--red); border-color: var(--red); }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .who { color: var(--muted); font-size: 13.5px; }
+  .who b { color: var(--text); }
+  ul.sandboxes { list-style: none; margin-top: 8px; }
+  ul.sandboxes li {
+    display: flex; align-items: center; gap: 10px; padding: 9px 0;
+    border-top: 1px solid var(--border); font-family: var(--mono); font-size: 14px;
+  }
+  ul.sandboxes a { color: var(--accent); text-decoration: none; }
+  ul.sandboxes .when { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .hint { color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+  .hint code { font-family: var(--mono); color: var(--text); }
+  #error { color: var(--red); font-size: 13.5px; margin-top: 10px; display: none; }
+  .steps { color: var(--muted); font-size: 14px; line-height: 1.9; }
+  .steps b { color: var(--text); }
+  footer { color: var(--muted); font-size: 12.5px; padding: 20px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">fake<span>cloud</span></div>
+  <p class="tagline">A pretend cloud for learning Terraform, one tic-tac-toe board at a time.
+  Every mark is a resource; a live dashboard shows every apply, destroy, and drift as it happens.</p>
+
+  <div class="panel" id="account">
+    <h2>Your playgrounds</h2>
+    <div id="account-body" class="hint">Loading…</div>
+    <div id="error"></div>
+  </div>
+
+  <div class="panel">
+    <h2>How it works</h2>
+    <div class="steps">
+      1. Create a playground — it's your own private fakecloud.<br>
+      2. Point Terraform at it: the provider's <b>sandbox</b> attribute (the dashboard shows the exact block to copy).<br>
+      3. Work through the chapters in <b>examples/</b> — you write the Terraform, the dashboard shows the consequences.<br>
+      4. Playgrounds idle for 7 days fade away like all good pretend infrastructure.
+    </div>
+  </div>
+</main>
+<footer>
+  <a href="https://github.com/pokgak/fakecloud">source &amp; the course</a>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function fail(msg) { $('error').style.display = 'block'; $('error').textContent = msg; }
+
+async function refresh() {
+  const me = await fetch('/api/me').then(r => r.json()).catch(() => null);
+  const body = $('account-body');
+  if (!me) { body.textContent = 'server unreachable'; return; }
+
+  if (!me.authenticated) {
+    body.innerHTML = `
+      <div class="row">
+        <a class="btn" href="/auth/login">Sign in with GitHub</a>
+        <span class="hint">Sign-in is only used to keep playground creation fair — nothing touches your repos.</span>
+      </div>`;
+    return;
+  }
+
+  const list = (me.sandboxes || []).map(s => `
+    <li>
+      <a href="/s/${esc(s.id)}">${esc(s.id)}</a>
+      <span class="when">${new Date(s.created_at).toLocaleDateString()}</span>
+      <button class="danger" onclick="retire('${esc(s.id)}')">delete</button>
+    </li>`).join('');
+
+  body.innerHTML = `
+    <div class="row" style="margin-bottom:6px">
+      <button onclick="mint()">+ new playground</button>
+      <span class="who">${me.auth_required ? `signed in as <b>${esc(me.login)}</b> · <a href="/auth/logout" style="color:var(--muted)">sign out</a>` : 'local mode — no sign-in needed'}</span>
+    </div>
+    ${list ? `<ul class="sandboxes">${list}</ul>` : '<div class="hint" style="margin-top:8px">No playgrounds yet.</div>'}`;
+}
+
+async function mint() {
+  const resp = await fetch('/sandboxes', { method: 'POST' });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) { fail(body.error || 'could not create a playground'); return; }
+  location.href = body.dashboard_url;
+}
+
+async function retire(id) {
+  if (!confirm(`Delete playground ${id} and everything in it?\n\nAny Terraform state pointing at it will see all resources gone.`)) return;
+  const resp = await fetch(`/sandboxes/${id}`, { method: 'DELETE' });
+  if (!resp.ok) { const b = await resp.json().catch(() => ({})); fail(b.error || 'delete failed'); return; }
+  refresh();
+}
+
+refresh();
+</script>
+</body>
+</html>
