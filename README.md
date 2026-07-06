@@ -12,7 +12,12 @@ footguns tear it apart, drift and imports happen when you click it. And when
 you're done learning, flip it to `duel` mode and play a friend, one
 `terraform apply` at a time.
 
-![dashboard](docs/dashboard.png)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/dashboard-light.png">
+  <img alt="the fakecloud dashboard" src="docs/dashboard.png">
+</picture>
+
+The dashboard follows your OS theme — light and dark both included.
 
 ## The course
 

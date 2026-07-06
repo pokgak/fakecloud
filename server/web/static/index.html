@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fakecloud console</title>
 <style>
+  /* Theme follows the OS preference: dark is the default, light overrides
+     below via prefers-color-scheme. */
   :root {
+    color-scheme: dark;
     --bg: #0e1116;
     --panel: #161b24;
     --panel-2: #1c2330;
@@ -16,8 +19,30 @@
     --accent-2: #7b42bc;
     --green: #4cc38a;
     --yellow: #e5c07b;
+    --yellow-tint: rgba(229, 192, 123, .12);
     --red: #e06c75;
+    --code-bg: #0a0d12;
+    --code-text: #c5cede;
     --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f8;
+      --panel: #ffffff;
+      --panel-2: #edeff4;
+      --border: #d7dce5;
+      --text: #21293a;
+      --muted: #5e6a7e;
+      --accent: #7b42bc;
+      --accent-2: #7b42bc;
+      --green: #14804a;
+      --yellow: #a06a00;
+      --yellow-tint: rgba(160, 106, 0, .10);
+      --red: #c2333c;
+      --code-bg: #f7f5fb;
+      --code-text: #333a48;
+    }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -76,8 +101,8 @@
     font-size: 10.5px; font-family: var(--mono); text-transform: uppercase;
     padding: 2px 8px; border-radius: 999px; letter-spacing: .5px;
   }
-  .badge.freeplay { background: rgba(160,108,213,.15); color: var(--accent); border: 1px solid var(--accent-2); }
-  .badge.duel { background: rgba(229,192,123,.12); color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge.freeplay { background: transparent; color: var(--accent); border: 1px solid var(--accent-2); }
+  .badge.duel { background: var(--yellow-tint); color: var(--yellow); border: 1px solid var(--yellow); }
 
   button {
     background: var(--panel-2); color: var(--text);
@@ -93,9 +118,9 @@
     font-family: var(--mono); user-select: none;
   }
   pre.code {
-    background: #0a0d12; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
     padding: 12px; margin-top: 8px; overflow-x: auto;
-    font-family: var(--mono); font-size: 12px; line-height: 1.55; color: #c5cede;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--code-text);
   }
   pre.code .kw { color: var(--accent); }
   pre.code .str { color: var(--green); }
@@ -125,7 +150,7 @@
   .cell.playable:hover::after { content: attr(data-mark); color: var(--yellow); opacity: .45; }
   .cell.removable { cursor: pointer; }
   .cell.removable:hover { border-color: var(--red); }
-  .cell.win { border-color: var(--yellow); box-shadow: 0 0 10px rgba(229,192,123,.3); }
+  .cell.win { border-color: var(--yellow); box-shadow: 0 0 10px var(--yellow-tint); background: var(--yellow-tint); }
   .cell .pos { position: absolute; top: 3px; left: 6px; font-size: 9px; color: var(--muted); font-weight: 400; }
   .status { font-size: 13px; color: var(--muted); }
   .status .turn { color: var(--yellow); }
@@ -139,7 +164,7 @@
   .plaque {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 12px; font-family: var(--mono); color: var(--yellow);
-    background: rgba(229,192,123,.08); border: 1px solid rgba(229,192,123,.35);
+    background: var(--yellow-tint); border: 1px solid var(--yellow);
     border-radius: 6px; padding: 2px 9px; margin: 6px 0 2px; cursor: pointer;
   }
   .plaque:hover { border-color: var(--yellow); }
