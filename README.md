@@ -114,7 +114,7 @@ prefix, so `curl` works too:
 
 Playground management (top level): `POST /sandboxes` (requires GitHub
 sign-in on the hosted version), `DELETE /sandboxes/{id}`, `GET /api/me`.
-Playgrounds idle for 30 days are deleted; a sandbox holds at most 25 boards.
+Playgrounds idle for 7 days are deleted; a sandbox holds at most 12 boards.
 The sandbox id is a capability — anyone who has it can use the playground,
 which is exactly how you invite a duel opponent.
 

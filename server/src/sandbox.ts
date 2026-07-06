@@ -7,11 +7,11 @@ import * as store from "./store";
 import type { Env } from "./index";
 
 // A sandbox that sees no traffic for this long is deleted by its alarm.
-const IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Entity caps: a learning playground never needs more, and it keeps a
 // leaked sandbox id from becoming a free database.
-const MAX_BOARDS = 25;
+const MAX_BOARDS = 12;
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
