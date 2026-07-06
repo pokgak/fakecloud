@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fakecloud console</title>
+<style>
+  /* Theme follows the OS preference: dark is the default, light overrides
+     below via prefers-color-scheme. */
+  :root {
+    color-scheme: dark;
+    --bg: #0e1116;
+    --panel: #161b24;
+    --panel-2: #1c2330;
+    --border: #2a3342;
+    --text: #dce3ee;
+    --muted: #8b98ac;
+    --accent: #a06cd5;
+    --accent-2: #7b42bc;
+    --green: #4cc38a;
+    --yellow: #e5c07b;
+    --yellow-tint: rgba(229, 192, 123, .12);
+    --red: #e06c75;
+    --code-bg: #0a0d12;
+    --code-text: #c5cede;
+    --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f8;
+      --panel: #ffffff;
+      --panel-2: #edeff4;
+      --border: #d7dce5;
+      --text: #21293a;
+      --muted: #5e6a7e;
+      --accent: #7b42bc;
+      --accent-2: #7b42bc;
+      --green: #14804a;
+      --yellow: #a06a00;
+      --yellow-tint: rgba(160, 106, 0, .10);
+      --red: #c2333c;
+      --code-bg: #f7f5fb;
+      --code-text: #333a48;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header .logo {
+    font-family: var(--mono); font-weight: 700; font-size: 18px;
+    color: var(--accent);
+  }
+  header .logo span { color: var(--text); }
+  header .tagline { color: var(--muted); font-size: 13px; }
+  #conn {
+    margin-left: auto; font-size: 12px; font-family: var(--mono);
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  }
+  #conn.ok { color: var(--green); border-color: var(--green); }
+  #conn.bad { color: var(--red); border-color: var(--red); }
+
+  main {
+    display: grid; grid-template-columns: 1fr 420px; gap: 20px;
+    padding: 20px 24px; max-width: 1400px; margin: 0 auto;
+  }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .count {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--text);
+  }
+  h2 button { margin-left: auto; }
+
+  .board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { transform: scale(.96); opacity: 0; } }
+  .card h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card h3 .rid { color: var(--muted); font-family: var(--mono); font-size: 12px; font-weight: 400; }
+  .badge {
+    font-size: 10.5px; font-family: var(--mono); text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; letter-spacing: .5px;
+  }
+  .badge.freeplay { background: transparent; color: var(--accent); border: 1px solid var(--accent-2); }
+  .badge.duel { background: var(--yellow-tint); color: var(--yellow); border: 1px solid var(--yellow); }
+
+  button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 12px; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  details.hcl { margin-top: 10px; }
+  details.hcl summary {
+    cursor: pointer; font-size: 12px; color: var(--accent);
+    font-family: var(--mono); user-select: none;
+  }
+  pre.code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; margin-top: 8px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--code-text);
+  }
+  pre.code .kw { color: var(--accent); }
+  pre.code .str { color: var(--green); }
+  pre.code .cm { color: var(--muted); font-style: italic; }
+
+  .empty {
+    border: 1px dashed var(--border); border-radius: 10px; padding: 22px;
+    color: var(--muted); font-size: 13.5px; line-height: 1.6;
+  }
+  .empty pre.code { margin-top: 10px; }
+
+  .board {
+    display: grid; grid-template-columns: repeat(3, 64px); gap: 6px;
+    margin: 12px 0; width: fit-content;
+  }
+  .cell {
+    width: 64px; height: 64px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 30px; font-weight: 700;
+    cursor: default; position: relative;
+  }
+  .cell.X { color: var(--accent); }
+  .cell.O { color: var(--green); }
+  .cell.playable { cursor: pointer; }
+  .cell.playable:hover { border-color: var(--yellow); }
+  .cell.playable:hover::after { content: attr(data-mark); color: var(--yellow); opacity: .45; }
+  .cell.removable { cursor: pointer; }
+  .cell.removable:hover { border-color: var(--red); }
+  .cell.win { border-color: var(--yellow); box-shadow: 0 0 10px var(--yellow-tint); background: var(--yellow-tint); }
+  .cell .pos { position: absolute; top: 3px; left: 6px; font-size: 9px; color: var(--muted); font-weight: 400; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status .turn { color: var(--yellow); }
+  .status .won { color: var(--green); font-weight: 600; }
+  .markpick { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+  .markpick button { padding: 1px 9px; font-family: var(--mono); font-weight: 700; }
+  .markpick button.sel.X { border-color: var(--accent); color: var(--accent); }
+  .markpick button.sel.O { border-color: var(--green); color: var(--green); }
+  .movelist { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+  .movelist b.X { color: var(--accent); } .movelist b.O { color: var(--green); }
+  .plaque {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: var(--mono); color: var(--yellow);
+    background: var(--yellow-tint); border: 1px solid var(--yellow);
+    border-radius: 6px; padding: 2px 9px; margin: 6px 0 2px; cursor: pointer;
+  }
+  .plaque:hover { border-color: var(--yellow); }
+  .plaque .pid { color: var(--muted); }
+  .card .actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  aside .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 20px;
+  }
+  aside h2 { margin-bottom: 10px; }
+  #feed {
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    max-height: 320px; overflow-y: auto;
+  }
+  #feed div { white-space: pre-wrap; }
+  #feed .add { color: var(--green); }
+  #feed .change { color: var(--yellow); }
+  #feed .destroy { color: var(--red); }
+  #feed .time { color: var(--muted); }
+  #feed .hint { color: var(--muted); font-style: italic; }
+
+  .lesson { border-top: 1px solid var(--border); padding-bottom: 4px; }
+  .lesson summary {
+    cursor: pointer; padding: 10px 0; font-size: 13.5px; user-select: none;
+  }
+  .lesson summary .n {
+    display: inline-flex; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-2); align-items: center; justify-content: center;
+    font-size: 11px; margin-right: 8px; font-family: var(--mono);
+  }
+  .lesson summary .n.sq { background: var(--panel-2); border: 1px solid var(--yellow); color: var(--yellow); }
+  .lesson p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 6px 0; }
+  .lesson p b, .lesson p code { color: var(--text); }
+  .lesson .dir { font-family: var(--mono); font-size: 12px; color: var(--green); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">fake<span>cloud</span></div>
+  <div class="tagline">learn Terraform on a tic-tac-toe board — this console shows the real state of your cloud, live</div>
+  <div id="conn">connecting…</div>
+</header>
+
+<main>
+  <div><!-- left column -->
+    <h2>Boards <span class="count" id="board-count">0</span>
+      <button onclick="newBoard()">+ new board</button>
+    </h2>
+    <div class="board-grid" id="boards"></div>
+  </div>
+
+  <aside><!-- right column -->
+    <div class="panel">
+      <h2>State activity</h2>
+      <div id="feed"><div class="hint">Waiting for changes… run <b>terraform apply</b> and watch this feed.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>The course</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:8px">
+        One primitive — a board and its moves — and a chapter of Terraform per lesson.
+        Each chapter is a directory in <span class="dir">examples/</span> with a README of
+        missions and hints. You write every line of Terraform yourself; keep this console
+        visible while you do. (Stuck? An answer key lives on the <code>solutions</code> branch.)
+      </p>
+
+      <details class="lesson" open>
+        <summary><span class="n">1</span>Terraform basics</summary>
+        <p class="dir">examples/chapter-1-basics</p>
+        <p>Resource blocks, references between resources, variables, outputs, and the
+           <b>plan → apply → destroy</b> loop. Your tools: the
+           <code>fakecloud_tictactoe_board</code> resource (just needs a <code>name</code>)
+           and <code>fakecloud_tictactoe_move</code> (<code>board_id</code>,
+           <code>player</code>, <code>position</code> 0-8). Draw your first marks and watch
+           each command change real state here.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">2</span>count, for_each &amp; the footguns</summary>
+        <p class="dir">examples/chapter-2-count-vs-foreach</p>
+        <p>Draw a whole line of marks from one block with <code>count</code> — then remove
+           the <i>first</i> element of the list and read the plan very carefully before you
+           apply it. The board makes the index-shift footgun visible. Then rebuild the block
+           with <code>for_each</code> so each mark's identity is its cell, not its list
+           position, and run the same experiment.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">3</span>Drift &amp; import</summary>
+        <p class="dir">examples/chapter-3-drift-and-import</p>
+        <p>This console is your coworker who clicks things. <b>Click an empty cell</b> on a
+           freeplay board to make a mark Terraform doesn't know about (unmanaged infra —
+           note that <code>terraform plan</code> says nothing!). <b>Click one of your managed
+           marks</b> to delete it behind Terraform's back — now plan detects drift and offers
+           to replay it. Finally, adopt a clicked mark with
+           <code>terraform import</code> — every mark below lists its id.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">4</span>Modules</summary>
+        <p class="dir">examples/chapter-4-modules</p>
+        <p>Write a glyph module — variables in, board + marks inside, outputs back —
+           then stamp patterns from single <code>module</code> blocks. <code>for_each</code>
+           over a map of glyphs conjures a whole gallery in one apply; watch this console
+           when you run it. That's the moment modules click.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">5</span>Shared state &amp; stepping on each other</summary>
+        <p class="dir">examples/chapter-5-shared-state</p>
+        <p>The 🪧 nameplate is the only fakecloud resource that updates <b>in place</b>.
+           Two players import the same plaque into two state files and start an
+           <b>apply war</b> — watch the yellow <b>~</b> lines ping-pong in the feed.
+           Then the fixes: <code>ignore_changes</code>, single ownership + data sources,
+           and why real teams use state locking. Plus <code>prevent_destroy</code> and
+           the <code>create_before_destroy</code> footgun.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">6</span>Dependencies &amp; ordering</summary>
+        <p class="dir">examples/chapter-6-dependencies</p>
+        <p>Terraform runs a <b>graph</b>, not a script. References are the edges — watch
+           this feed during apply: boards always land before their marks, independent
+           things race in parallel. <code>depends_on</code> adds edges by hand, and a
+           data source referencing your opponent's board
+           (<code>data.fakecloud_tictactoe_board.opponent.id</code>) shows how the graph
+           reaches infrastructure you don't manage — and where it stops.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n sq">★</span>Side quest: the duel</summary>
+        <p class="dir">examples/side-quest-duel</p>
+        <p>A board with <code>mode = "duel"</code> is refereed: X starts, turns alternate,
+           the board locks on a win. Share the board id with a friend pointing at the same
+           fakecloud and play one <b>terraform apply</b> at a time. Applying out of turn
+           fails with the reason — a failed apply just means "wait for your opponent".</p>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// sanitize a name into a valid terraform label for the snippets
+const label = (name) => (String(name).replace(/[^A-Za-z0-9_-]/g, '_').replace(/^[^A-Za-z_]/, '_$&') || 'example');
+
+let prev = null;              // previous snapshot, for diffing into the feed
+const pickedMark = {};        // per-board mark selection for freeplay clicks
+
+// ---------- polling ----------
+
+async function tick() {
+  try {
+    const boards = await fetch('/tictactoe/boards').then(r => r.json()) || [];
+    $('conn').textContent = 'connected';
+    $('conn').className = 'ok';
+    if (prev) diff(prev, boards);
+    render(boards);
+    prev = boards;
+  } catch (e) {
+    $('conn').textContent = 'server unreachable';
+    $('conn').className = 'bad';
+  }
+}
+setInterval(tick, 2000);
+tick();
+
+// ---------- diff → activity feed ----------
+
+function feed(cls, text) {
+  const t = new Date().toTimeString().slice(0, 8);
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = `<span class="time">${t}</span> ${text}`;
+  const f = $('feed');
+  if (f.firstChild && f.firstChild.className === 'hint') f.firstChild.remove();
+  f.prepend(div);
+  while (f.children.length > 200) f.lastChild.remove();
+}
+
+function diff(before, after) {
+  const byId = (list) => Object.fromEntries(list.map(x => [x.id, x]));
+  const [bb, ab] = [byId(before), byId(after)];
+
+  for (const b of after) {
+    const old = bb[b.id];
+    if (!old) { feed('add', `+ fakecloud_tictactoe_board <b>${esc(b.name)}</b> created (id=${b.id})`); continue; }
+    const oldMoves = byId(old.moves), newMoves = byId(b.moves);
+    for (const m of b.moves)
+      if (!oldMoves[m.id]) feed('add', `+ fakecloud_tictactoe_move <b>${m.player}</b> → cell ${m.position} on ${esc(b.name)} (id=${m.id})`);
+    for (const m of old.moves)
+      if (!newMoves[m.id]) feed('destroy', `− fakecloud_tictactoe_move <b>${m.player}</b> removed from cell ${m.position} on ${esc(b.name)}`);
+    if (!old.winner && b.winner)
+      feed(b.winner === 'draw' ? 'change' : 'add',
+        b.winner === 'draw' ? `~ board <b>${esc(b.name)}</b> is full — draw` : `★ <b>${b.winner}</b> completes a line on <b>${esc(b.name)}</b>!`);
+    const [op, np] = [old.nameplate, b.nameplate];
+    if (!op && np)
+      feed('add', `+ fakecloud_nameplate on <b>${esc(b.name)}</b>: "${esc(np.text)}" (id=${np.id})`);
+    else if (op && !np)
+      feed('destroy', `− fakecloud_nameplate removed from <b>${esc(b.name)}</b> ("${esc(op.text)}")`);
+    else if (op && np && op.text !== np.text)
+      feed('change', `~ fakecloud_nameplate on <b>${esc(b.name)}</b>: "${esc(op.text)}" → "${esc(np.text)}"`);
+  }
+  for (const b of before)
+    if (!ab[b.id]) feed('destroy', `− fakecloud_tictactoe_board <b>${esc(b.name)}</b> destroyed (id=${b.id})`);
+}
+
+// ---------- rendering ----------
+
+function winCells(cells) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (const l of lines)
+    if (cells[l[0]] && cells[l[0]] === cells[l[1]] && cells[l[1]] === cells[l[2]]) return new Set(l);
+  return new Set();
+}
+
+function boardHCL(b) {
+  const l = label(b.name);
+  const mode = b.mode === 'duel' ? `\n  mode = <span class="str">"duel"</span>` : '';
+  return `<span class="cm"># this board, as Terraform:</span>
+<span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_board"</span> <span class="str">"${esc(l)}"</span> {
+  name = <span class="str">"${esc(b.name)}"</span>${mode}
+}
+
+<span class="cm"># already exists? adopt it into your state:</span>
+<span class="cm"># terraform import fakecloud_tictactoe_board.${esc(l)} ${b.id}</span>`;
+}
+
+function render(boards) {
+  // don't wipe an open <details> mid-read: skip re-render if nothing changed
+  if (prev && JSON.stringify(prev) === JSON.stringify(boards)) return;
+  $('board-count').textContent = boards.length;
+  if (!boards.length) {
+    $('boards').innerHTML = `<div class="empty">No boards yet — this space fills up the moment
+      you <b>terraform apply</b> a <code>fakecloud_tictactoe_board</code>.
+      Start with <span class="dir">examples/chapter-1-basics/README.md</span>.</div>`;
+    return;
+  }
+  $('boards').innerHTML = boards.map(b => {
+    const wins = winCells(b.cells);
+    const isDuel = b.mode === 'duel';
+    const mark = isDuel ? b.next_player : (pickedMark[b.id] || 'X');
+    const locked = isDuel && b.winner;                     // duels lock on win; freeplay never locks
+    const full = b.winner === 'draw';
+
+    let status;
+    if (isDuel) {
+      status = b.winner
+        ? (b.winner === 'draw' ? `<span class="won">draw</span> — destroy the board to rematch`
+                               : `<span class="won">${b.winner} wins the duel!</span>`)
+        : `next up: <span class="turn">${b.next_player}</span>`;
+    } else {
+      status = (b.winner && b.winner !== 'draw' ? `<span class="won">${b.winner} has a line</span> · ` : '')
+        + `place as
+          <span class="markpick">
+            <button class="${mark === 'X' ? 'sel X' : ''}" onclick="pickMark(${b.id}, 'X')">X</button>
+            <button class="${mark === 'O' ? 'sel O' : ''}" onclick="pickMark(${b.id}, 'O')">O</button>
+          </span> · click a mark to remove it`;
+    }
+
+    const cells = b.cells.map((c, i) => {
+      const playable = !c && !locked && !full;
+      const removable = c && !isDuel;
+      const move = b.moves.find(m => m.position === i);
+      let onclick = '';
+      if (playable) onclick = `onclick="playMove(${b.id}, ${i}, '${mark}')"`;
+      else if (removable && move) onclick = `onclick="removeMove(${move.id}, ${i})"`;
+      return `<div class="cell ${c} ${playable ? 'playable' : ''} ${removable ? 'removable' : ''} ${wins.has(i) ? 'win' : ''}"
+        data-mark="${mark}" ${onclick} title="${removable ? 'click to remove out-of-band (drift!)' : ''}">
+        <span class="pos">${i}</span>${c}</div>`;
+    }).join('');
+
+    const moves = b.moves.map(m =>
+      `<div><b class="${m.player}">${m.player}</b> cell ${m.position} · id=${m.id} · <span style="opacity:.7">terraform import fakecloud_tictactoe_move.NAME ${m.id}</span></div>`).join('');
+
+    const plaque = b.nameplate
+      ? `<div class="plaque" onclick="editPlaque(${b.nameplate.id}, '${esc(b.nameplate.text)}')"
+           title="click to edit out-of-band — every state file managing this will see drift! import: terraform import fakecloud_nameplate.NAME ${b.nameplate.id}">
+           🪧 ${esc(b.nameplate.text)} <span class="pid">id=${b.nameplate.id}</span></div>`
+      : '';
+
+    return `
+    <div class="card">
+      <h3>${esc(b.name)} <span class="rid">id=${b.id}</span> <span class="badge ${b.mode}">${b.mode}</span></h3>
+      ${plaque}
+      <div class="status">${status}</div>
+      <div class="board">${cells}</div>
+      ${moves ? `<div class="movelist">${moves}</div>` : ''}
+      <details class="hcl"><summary>show as Terraform</summary><pre class="code">${boardHCL(b)}</pre></details>
+      <div class="actions">
+        <button class="danger" onclick="destroyBoard(${b.id}, '${esc(b.name)}')">delete board</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function pickMark(boardId, mark) {
+  pickedMark[boardId] = mark;
+  prev = null; // force re-render
+  tick();
+}
+
+// ---------- out-of-band actions (the drift machine) ----------
+
+async function apiCall(method, path, body) {
+  const resp = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    alert(err.error || `request failed: ${resp.status}`);
+    return null;
+  }
+  return resp.json();
+}
+
+async function newBoard() {
+  const name = prompt('Board name?', 'sandbox');
+  if (!name) return;
+  const mode = confirm('OK = freeplay (lessons)\nCancel = duel (refereed game vs a friend)') ? 'freeplay' : 'duel';
+  await apiCall('POST', '/tictactoe/boards', { name, mode }); tick();
+}
+
+async function destroyBoard(id, name) {
+  if (!confirm(`Delete board "${name}" and all its moves?\n\nIf Terraform manages it, the next plan will notice and offer to recreate it.`)) return;
+  await apiCall('DELETE', `/tictactoe/boards/${id}`); tick();
+}
+
+async function playMove(boardId, position, player) {
+  await apiCall('POST', '/tictactoe/moves', { board_id: boardId, player, position });
+  tick();
+}
+
+async function editPlaque(plateId, current) {
+  const text = prompt('New plaque text (this edit happens outside Terraform — owners will see drift):', current);
+  if (text === null || text === current) return;
+  await apiCall('PUT', `/tictactoe/nameplates/${plateId}`, { text });
+  tick();
+}
+
+async function removeMove(moveId, position) {
+  if (!confirm(`Remove the mark at cell ${position} outside Terraform?\n\nIf Terraform manages this move, the next plan will detect the drift and offer to replay it.`)) return;
+  await apiCall('DELETE', `/tictactoe/moves/${moveId}`);
+  tick();
+}
+</script>
+</body>
+</html>
