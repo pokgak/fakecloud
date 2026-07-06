@@ -203,42 +203,30 @@
       <h2>The course</h2>
       <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:8px">
         One primitive — a board and its moves — and a chapter of Terraform per lesson.
-        Each chapter is a directory in <span class="dir">examples/</span>; open its
-        <code>main.tf</code>, follow the comments, and keep this console visible.
+        Each chapter is a directory in <span class="dir">examples/</span> with a README of
+        missions and hints. You write every line of Terraform yourself; keep this console
+        visible while you do. (Stuck? An answer key lives on the <code>solutions</code> branch.)
       </p>
 
       <details class="lesson" open>
         <summary><span class="n">1</span>Terraform basics</summary>
         <p class="dir">examples/chapter-1-basics</p>
         <p>Resource blocks, references between resources, variables, outputs, and the
-           <b>plan → apply → destroy</b> loop. You'll draw your first marks on a board
-           and watch each command change real state:</p>
-        <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_board"</span> <span class="str">"lesson"</span> {
-  name = <span class="str">"chapter-1"</span>
-}
-
-<span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_move"</span> <span class="str">"center"</span> {
-  board_id = fakecloud_tictactoe_board.lesson.id
-  player   = <span class="str">"X"</span>
-  position = 4  <span class="cm"># cells are 0-8, row by row</span>
-}</pre>
+           <b>plan → apply → destroy</b> loop. Your tools: the
+           <code>fakecloud_tictactoe_board</code> resource (just needs a <code>name</code>)
+           and <code>fakecloud_tictactoe_move</code> (<code>board_id</code>,
+           <code>player</code>, <code>position</code> 0-8). Draw your first marks and watch
+           each command change real state here.</p>
       </details>
 
       <details class="lesson">
         <summary><span class="n">2</span>count, for_each &amp; the footguns</summary>
         <p class="dir">examples/chapter-2-count-vs-foreach</p>
         <p>Draw a whole line of marks from one block with <code>count</code> — then remove
-           the <i>first</i> element of the list and watch the plan want to
-           <b>destroy and recreate every mark after it</b>. The board makes the index-shift
-           footgun visible (and sometimes the apply even collides with itself — that's the lesson).
-           Then switch to <code>for_each</code> and see the surgical version.</p>
-        <pre class="code"><span class="cm"># count: positions ARE their index — remove one, all shift</span>
-count    = length(var.cells)
-position = var.cells[count.index]
-
-<span class="cm"># for_each: positions are keys — remove one, only it dies</span>
-for_each = toset([<span class="kw">for</span> c <span class="kw">in</span> var.cells : tostring(c)])
-position = tonumber(each.key)</pre>
+           the <i>first</i> element of the list and read the plan very carefully before you
+           apply it. The board makes the index-shift footgun visible. Then rebuild the block
+           with <code>for_each</code> so each mark's identity is its cell, not its list
+           position, and run the same experiment.</p>
       </details>
 
       <details class="lesson">
@@ -255,16 +243,10 @@ position = tonumber(each.key)</pre>
       <details class="lesson">
         <summary><span class="n">4</span>Modules</summary>
         <p class="dir">examples/chapter-4-modules</p>
-        <p>A glyph module stamps a whole pattern — board plus marks — from one block.
-           Then <code>for_each</code> over a map of glyphs conjures a gallery of boards
-           in a single apply. Watch this console when you run it; that's the moment
-           modules click.</p>
-        <pre class="code"><span class="kw">module</span> <span class="str">"smiley"</span> {
-  source = <span class="str">"./modules/glyph"</span>
-  name   = <span class="str">"smiley"</span>
-  player = <span class="str">"O"</span>
-  cells  = [0, 2, 6, 7, 8]
-}</pre>
+        <p>Write a glyph module — variables in, board + marks inside, outputs back —
+           then stamp patterns from single <code>module</code> blocks. <code>for_each</code>
+           over a map of glyphs conjures a whole gallery in one apply; watch this console
+           when you run it. That's the moment modules click.</p>
       </details>
 
       <details class="lesson">
@@ -395,10 +377,9 @@ function render(boards) {
   if (prev && JSON.stringify(prev) === JSON.stringify(boards)) return;
   $('board-count').textContent = boards.length;
   if (!boards.length) {
-    $('boards').innerHTML = `<div class="empty">No boards yet. Start chapter 1, or apply one right now:
-      <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_board"</span> <span class="str">"lesson"</span> {
-  name = <span class="str">"chapter-1"</span>
-}</pre></div>`;
+    $('boards').innerHTML = `<div class="empty">No boards yet — this space fills up the moment
+      you <b>terraform apply</b> a <code>fakecloud_tictactoe_board</code>.
+      Start with <span class="dir">examples/chapter-1-basics/README.md</span>.</div>`;
     return;
   }
   $('boards').innerHTML = boards.map(b => {

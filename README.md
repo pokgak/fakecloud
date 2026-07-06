@@ -16,8 +16,12 @@ you're done learning, flip it to `duel` mode and play a friend, one
 
 ## The course
 
-Each chapter is a directory under `examples/` — open its `main.tf`, follow
-the comments, and keep the dashboard visible.
+Each chapter is a directory under `examples/` with a `README.md` of missions
+and hints and a starter `main.tf` of TODOs. **You write every line of
+Terraform yourself** — the hints name the primitives and the expected plan
+output, never the code. Keep the dashboard visible while you work. If you're
+truly stuck, an answer key lives on the [`solutions`](../../tree/solutions)
+branch.
 
 | Chapter | What the board teaches |
 |---|---|
