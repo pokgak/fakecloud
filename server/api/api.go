@@ -28,6 +28,11 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /tictactoe/moves", a.createMove)
 	mux.HandleFunc("GET /tictactoe/moves/{id}", a.getMove)
 	mux.HandleFunc("DELETE /tictactoe/moves/{id}", a.deleteMove)
+
+	mux.HandleFunc("POST /tictactoe/nameplates", a.createNameplate)
+	mux.HandleFunc("GET /tictactoe/nameplates/{id}", a.getNameplate)
+	mux.HandleFunc("PUT /tictactoe/nameplates/{id}", a.updateNameplate)
+	mux.HandleFunc("DELETE /tictactoe/nameplates/{id}", a.deleteNameplate)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -122,6 +127,67 @@ func (a *API) createMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, move)
+}
+
+func (a *API) createNameplate(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s", r.Method, r.URL.Path)
+	var req store.Nameplate
+	if !decode(w, r, &req) {
+		return
+	}
+	plate, err := a.store.CreateNameplate(req.BoardID, req.Text)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, plate)
+}
+
+func (a *API) getNameplate(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, store.ErrNotFound)
+		return
+	}
+	plate, err := a.store.GetNameplate(id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plate)
+}
+
+func (a *API) updateNameplate(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s", r.Method, r.URL.Path)
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, store.ErrNotFound)
+		return
+	}
+	var req store.Nameplate
+	if !decode(w, r, &req) {
+		return
+	}
+	plate, err := a.store.UpdateNameplate(id, req.Text)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plate)
+}
+
+func (a *API) deleteNameplate(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s", r.Method, r.URL.Path)
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, store.ErrNotFound)
+		return
+	}
+	if err := a.store.DeleteNameplate(id); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 func (a *API) getMove(w http.ResponseWriter, r *http.Request) {

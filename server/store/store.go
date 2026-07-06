@@ -41,16 +41,26 @@ type Move struct {
 	Position int    `json:"position"`
 }
 
+// Nameplate is a plaque attached to a board. Unlike moves it is updatable
+// in place, which makes it the demo object for in-place updates and for the
+// "two states fighting over one resource" lesson.
+type Nameplate struct {
+	ID      int    `json:"id"`
+	BoardID int    `json:"board_id"`
+	Text    string `json:"text"`
+}
+
 type Board struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 	Mode string `json:"mode"`
 	// Cells has 9 entries, row by row; each is "", "X", or "O". Cells,
 	// NextPlayer, Winner, and Moves are derived from the board's moves.
-	Cells      []string `json:"cells"`
-	NextPlayer string   `json:"next_player"`
-	Winner     string   `json:"winner"`
-	Moves      []Move   `json:"moves"`
+	Cells      []string   `json:"cells"`
+	NextPlayer string     `json:"next_player"`
+	Winner     string     `json:"winner"`
+	Moves      []Move     `json:"moves"`
+	Nameplate  *Nameplate `json:"nameplate,omitempty"`
 }
 
 type boardMeta struct {
@@ -59,19 +69,23 @@ type boardMeta struct {
 }
 
 type Store struct {
-	mu          sync.Mutex
-	nextBoardID int
-	nextMoveID  int
-	boards      map[int]boardMeta
-	moves       map[int]Move
+	mu              sync.Mutex
+	nextBoardID     int
+	nextMoveID      int
+	nextNameplateID int
+	boards          map[int]boardMeta
+	moves           map[int]Move
+	nameplates      map[int]Nameplate
 }
 
 func New() *Store {
 	return &Store{
-		nextBoardID: 1,
-		nextMoveID:  1,
-		boards:      map[int]boardMeta{},
-		moves:       map[int]Move{},
+		nextBoardID:     1,
+		nextMoveID:      1,
+		nextNameplateID: 1,
+		boards:          map[int]boardMeta{},
+		moves:           map[int]Move{},
+		nameplates:      map[int]Nameplate{},
 	}
 }
 
@@ -93,6 +107,14 @@ func (s *Store) boardState(boardID int) Board {
 		}
 	}
 	sort.Slice(board.Moves, func(i, j int) bool { return board.Moves[i].ID < board.Moves[j].ID })
+
+	for _, plate := range s.nameplates {
+		if plate.BoardID == boardID {
+			p := plate
+			board.Nameplate = &p
+			break
+		}
+	}
 
 	for _, line := range winningLines {
 		if board.Cells[line[0]] != "" && board.Cells[line[0]] == board.Cells[line[1]] && board.Cells[line[1]] == board.Cells[line[2]] {
@@ -176,6 +198,11 @@ func (s *Store) DeleteBoard(id int) error {
 			delete(s.moves, moveID)
 		}
 	}
+	for plateID, plate := range s.nameplates {
+		if plate.BoardID == id {
+			delete(s.nameplates, plateID)
+		}
+	}
 	return nil
 }
 
@@ -208,6 +235,61 @@ func (s *Store) CreateMove(boardID int, player string, position int) (Move, erro
 	s.nextMoveID++
 	s.moves[move.ID] = move
 	return move, nil
+}
+
+func (s *Store) CreateNameplate(boardID int, text string) (Nameplate, error) {
+	if text == "" {
+		return Nameplate{}, ValidationError{"text is required"}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.boards[boardID]; !ok {
+		return Nameplate{}, ErrNotFound
+	}
+	for _, plate := range s.nameplates {
+		if plate.BoardID == boardID {
+			return Nameplate{}, ConflictError{fmt.Sprintf("board %d already has a nameplate (id=%d) — import it instead of creating another", boardID, plate.ID)}
+		}
+	}
+	plate := Nameplate{ID: s.nextNameplateID, BoardID: boardID, Text: text}
+	s.nextNameplateID++
+	s.nameplates[plate.ID] = plate
+	return plate, nil
+}
+
+func (s *Store) GetNameplate(id int) (Nameplate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	plate, ok := s.nameplates[id]
+	if !ok {
+		return Nameplate{}, ErrNotFound
+	}
+	return plate, nil
+}
+
+func (s *Store) UpdateNameplate(id int, text string) (Nameplate, error) {
+	if text == "" {
+		return Nameplate{}, ValidationError{"text is required"}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	plate, ok := s.nameplates[id]
+	if !ok {
+		return Nameplate{}, ErrNotFound
+	}
+	plate.Text = text
+	s.nameplates[id] = plate
+	return plate, nil
+}
+
+func (s *Store) DeleteNameplate(id int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.nameplates[id]; !ok {
+		return ErrNotFound
+	}
+	delete(s.nameplates, id)
+	return nil
 }
 
 func (s *Store) GetMove(id int) (Move, error) {

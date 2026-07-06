@@ -34,12 +34,13 @@ func NewBoardResource() resource.Resource {
 }
 
 type boardModel struct {
-	ID         types.Int64  `tfsdk:"id"`
-	Name       types.String `tfsdk:"name"`
-	Mode       types.String `tfsdk:"mode"`
-	Cells      types.List   `tfsdk:"cells"`
-	NextPlayer types.String `tfsdk:"next_player"`
-	Winner     types.String `tfsdk:"winner"`
+	ID            types.Int64  `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Mode          types.String `tfsdk:"mode"`
+	Cells         types.List   `tfsdk:"cells"`
+	NextPlayer    types.String `tfsdk:"next_player"`
+	Winner        types.String `tfsdk:"winner"`
+	NameplateText types.String `tfsdk:"nameplate_text"`
 }
 
 func (r *boardResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -91,6 +92,10 @@ func (r *boardResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Computed:    true,
 				Description: "\"X\", \"O\", \"draw\", or empty while no line is complete.",
 			},
+			"nameplate_text": schema.StringAttribute{
+				Computed:    true,
+				Description: "Text of the board's nameplate, if one exists (see fakecloud_nameplate).",
+			},
 		},
 	}
 }
@@ -107,13 +112,18 @@ func boardToModel(ctx context.Context, board client.Board) (boardModel, error) {
 	if diags.HasError() {
 		return boardModel{}, fmt.Errorf("converting cells: %v", diags.Errors())
 	}
+	plaqueText := ""
+	if board.Nameplate != nil {
+		plaqueText = board.Nameplate.Text
+	}
 	return boardModel{
-		ID:         types.Int64Value(board.ID),
-		Name:       types.StringValue(board.Name),
-		Mode:       types.StringValue(board.Mode),
-		Cells:      cells,
-		NextPlayer: types.StringValue(board.NextPlayer),
-		Winner:     types.StringValue(board.Winner),
+		ID:            types.Int64Value(board.ID),
+		Name:          types.StringValue(board.Name),
+		Mode:          types.StringValue(board.Mode),
+		Cells:         cells,
+		NextPlayer:    types.StringValue(board.NextPlayer),
+		Winner:        types.StringValue(board.Winner),
+		NameplateText: types.StringValue(plaqueText),
 	}, nil
 }
 

@@ -35,12 +35,13 @@ func IsNotFound(err error) bool {
 }
 
 type Board struct {
-	ID         int64    `json:"id"`
-	Name       string   `json:"name"`
-	Mode       string   `json:"mode"`
-	Cells      []string `json:"cells"`
-	NextPlayer string   `json:"next_player"`
-	Winner     string   `json:"winner"`
+	ID         int64      `json:"id"`
+	Name       string     `json:"name"`
+	Mode       string     `json:"mode"`
+	Cells      []string   `json:"cells"`
+	NextPlayer string     `json:"next_player"`
+	Winner     string     `json:"winner"`
+	Nameplate  *Nameplate `json:"nameplate"`
 }
 
 type Move struct {
@@ -48,6 +49,12 @@ type Move struct {
 	BoardID  int64  `json:"board_id"`
 	Player   string `json:"player"`
 	Position int64  `json:"position"`
+}
+
+type Nameplate struct {
+	ID      int64  `json:"id"`
+	BoardID int64  `json:"board_id"`
+	Text    string `json:"text"`
 }
 
 // do performs a request and decodes the JSON response into out (if non-nil).
@@ -124,4 +131,26 @@ func (c *Client) GetMove(id int64) (Move, error) {
 
 func (c *Client) DeleteMove(id int64) error {
 	return c.do("DELETE", fmt.Sprintf("/tictactoe/moves/%d", id), nil, nil)
+}
+
+func (c *Client) CreateNameplate(boardID int64, text string) (Nameplate, error) {
+	var plate Nameplate
+	err := c.do("POST", "/tictactoe/nameplates", Nameplate{BoardID: boardID, Text: text}, &plate)
+	return plate, err
+}
+
+func (c *Client) GetNameplate(id int64) (Nameplate, error) {
+	var plate Nameplate
+	err := c.do("GET", fmt.Sprintf("/tictactoe/nameplates/%d", id), nil, &plate)
+	return plate, err
+}
+
+func (c *Client) UpdateNameplate(id int64, text string) (Nameplate, error) {
+	var plate Nameplate
+	err := c.do("PUT", fmt.Sprintf("/tictactoe/nameplates/%d", id), Nameplate{Text: text}, &plate)
+	return plate, err
+}
+
+func (c *Client) DeleteNameplate(id int64) error {
+	return c.do("DELETE", fmt.Sprintf("/tictactoe/nameplates/%d", id), nil, nil)
 }

@@ -136,6 +136,14 @@
   .markpick button.sel.O { border-color: var(--green); color: var(--green); }
   .movelist { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.7; }
   .movelist b.X { color: var(--accent); } .movelist b.O { color: var(--green); }
+  .plaque {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: var(--mono); color: var(--yellow);
+    background: rgba(229,192,123,.08); border: 1px solid rgba(229,192,123,.35);
+    border-radius: 6px; padding: 2px 9px; margin: 6px 0 2px; cursor: pointer;
+  }
+  .plaque:hover { border-color: var(--yellow); }
+  .plaque .pid { color: var(--muted); }
   .card .actions { display: flex; gap: 8px; margin-top: 10px; }
 
   aside .panel {
@@ -245,6 +253,43 @@ position = tonumber(each.key)</pre>
       </details>
 
       <details class="lesson">
+        <summary><span class="n">4</span>Modules</summary>
+        <p class="dir">examples/chapter-4-modules</p>
+        <p>A glyph module stamps a whole pattern — board plus marks — from one block.
+           Then <code>for_each</code> over a map of glyphs conjures a gallery of boards
+           in a single apply. Watch this console when you run it; that's the moment
+           modules click.</p>
+        <pre class="code"><span class="kw">module</span> <span class="str">"smiley"</span> {
+  source = <span class="str">"./modules/glyph"</span>
+  name   = <span class="str">"smiley"</span>
+  player = <span class="str">"O"</span>
+  cells  = [0, 2, 6, 7, 8]
+}</pre>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">5</span>Shared state &amp; stepping on each other</summary>
+        <p class="dir">examples/chapter-5-shared-state</p>
+        <p>The 🪧 nameplate is the only fakecloud resource that updates <b>in place</b>.
+           Two players import the same plaque into two state files and start an
+           <b>apply war</b> — watch the yellow <b>~</b> lines ping-pong in the feed.
+           Then the fixes: <code>ignore_changes</code>, single ownership + data sources,
+           and why real teams use state locking. Plus <code>prevent_destroy</code> and
+           the <code>create_before_destroy</code> footgun.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">6</span>Dependencies &amp; ordering</summary>
+        <p class="dir">examples/chapter-6-dependencies</p>
+        <p>Terraform runs a <b>graph</b>, not a script. References are the edges — watch
+           this feed during apply: boards always land before their marks, independent
+           things race in parallel. <code>depends_on</code> adds edges by hand, and a
+           data source referencing your opponent's board
+           (<code>data.fakecloud_tictactoe_board.opponent.id</code>) shows how the graph
+           reaches infrastructure you don't manage — and where it stops.</p>
+      </details>
+
+      <details class="lesson">
         <summary><span class="n sq">★</span>Side quest: the duel</summary>
         <p class="dir">examples/side-quest-duel</p>
         <p>A board with <code>mode = "duel"</code> is refereed: X starts, turns alternate,
@@ -312,6 +357,13 @@ function diff(before, after) {
     if (!old.winner && b.winner)
       feed(b.winner === 'draw' ? 'change' : 'add',
         b.winner === 'draw' ? `~ board <b>${esc(b.name)}</b> is full — draw` : `★ <b>${b.winner}</b> completes a line on <b>${esc(b.name)}</b>!`);
+    const [op, np] = [old.nameplate, b.nameplate];
+    if (!op && np)
+      feed('add', `+ fakecloud_nameplate on <b>${esc(b.name)}</b>: "${esc(np.text)}" (id=${np.id})`);
+    else if (op && !np)
+      feed('destroy', `− fakecloud_nameplate removed from <b>${esc(b.name)}</b> ("${esc(op.text)}")`);
+    else if (op && np && op.text !== np.text)
+      feed('change', `~ fakecloud_nameplate on <b>${esc(b.name)}</b>: "${esc(op.text)}" → "${esc(np.text)}"`);
   }
   for (const b of before)
     if (!ab[b.id]) feed('destroy', `− fakecloud_tictactoe_board <b>${esc(b.name)}</b> destroyed (id=${b.id})`);
@@ -386,9 +438,16 @@ function render(boards) {
     const moves = b.moves.map(m =>
       `<div><b class="${m.player}">${m.player}</b> cell ${m.position} · id=${m.id} · <span style="opacity:.7">terraform import fakecloud_tictactoe_move.NAME ${m.id}</span></div>`).join('');
 
+    const plaque = b.nameplate
+      ? `<div class="plaque" onclick="editPlaque(${b.nameplate.id}, '${esc(b.nameplate.text)}')"
+           title="click to edit out-of-band — every state file managing this will see drift! import: terraform import fakecloud_nameplate.NAME ${b.nameplate.id}">
+           🪧 ${esc(b.nameplate.text)} <span class="pid">id=${b.nameplate.id}</span></div>`
+      : '';
+
     return `
     <div class="card">
       <h3>${esc(b.name)} <span class="rid">id=${b.id}</span> <span class="badge ${b.mode}">${b.mode}</span></h3>
+      ${plaque}
       <div class="status">${status}</div>
       <div class="board">${cells}</div>
       ${moves ? `<div class="movelist">${moves}</div>` : ''}
@@ -436,6 +495,13 @@ async function destroyBoard(id, name) {
 
 async function playMove(boardId, position, player) {
   await apiCall('POST', '/tictactoe/moves', { board_id: boardId, player, position });
+  tick();
+}
+
+async function editPlaque(plateId, current) {
+  const text = prompt('New plaque text (this edit happens outside Terraform — owners will see drift):', current);
+  if (text === null || text === current) return;
+  await apiCall('PUT', `/tictactoe/nameplates/${plateId}`, { text });
   tick();
 }
 

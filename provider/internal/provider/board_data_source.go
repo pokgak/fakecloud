@@ -55,6 +55,10 @@ func (d *boardDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"winner": schema.StringAttribute{
 				Computed: true,
 			},
+			"nameplate_text": schema.StringAttribute{
+				Computed:    true,
+				Description: "Text of the board's nameplate, if one exists.",
+			},
 		},
 	}
 }
