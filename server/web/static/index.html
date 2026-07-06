@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fakecloud console</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b24;
+    --panel-2: #1c2330;
+    --border: #2a3342;
+    --text: #dce3ee;
+    --muted: #8b98ac;
+    --accent: #a06cd5;
+    --accent-2: #7b42bc;
+    --green: #4cc38a;
+    --yellow: #e5c07b;
+    --red: #e06c75;
+    --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header .logo {
+    font-family: var(--mono); font-weight: 700; font-size: 18px;
+    color: var(--accent);
+  }
+  header .logo span { color: var(--text); }
+  header .tagline { color: var(--muted); font-size: 13px; }
+  #conn {
+    margin-left: auto; font-size: 12px; font-family: var(--mono);
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  }
+  #conn.ok { color: var(--green); border-color: var(--green); }
+  #conn.bad { color: var(--red); border-color: var(--red); }
+
+  main {
+    display: grid; grid-template-columns: 1fr 380px; gap: 20px;
+    padding: 20px 24px; max-width: 1400px; margin: 0 auto;
+  }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+
+  section { margin-bottom: 28px; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .count {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--text);
+  }
+  h2 button { margin-left: auto; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { transform: scale(.96); opacity: 0; } }
+  .card.flash { animation: flash 1s ease; }
+  @keyframes flash { 0% { border-color: var(--yellow); box-shadow: 0 0 12px rgba(229,192,123,.35);} 100% { border-color: var(--border);} }
+  .card h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card h3 .rid { color: var(--muted); font-family: var(--mono); font-size: 12px; font-weight: 400; }
+  .attr { display: flex; gap: 8px; font-family: var(--mono); font-size: 12.5px; padding: 2px 0; }
+  .attr .k { color: var(--muted); min-width: 110px; }
+  .attr .v { color: var(--green); }
+  .card .actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 12px; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent-2); border-color: var(--accent-2); }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  details.hcl { margin-top: 10px; }
+  details.hcl summary {
+    cursor: pointer; font-size: 12px; color: var(--accent);
+    font-family: var(--mono); user-select: none;
+  }
+  pre.code {
+    background: #0a0d12; border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; margin-top: 8px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55; color: #c5cede;
+  }
+  pre.code .kw { color: var(--accent); }
+  pre.code .str { color: var(--green); }
+  pre.code .cm { color: var(--muted); font-style: italic; }
+
+  .empty {
+    border: 1px dashed var(--border); border-radius: 10px; padding: 22px;
+    color: var(--muted); font-size: 13.5px; line-height: 1.6;
+  }
+  .empty pre.code { margin-top: 10px; }
+
+  /* tic-tac-toe */
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .board {
+    display: grid; grid-template-columns: repeat(3, 64px); gap: 6px;
+    margin: 12px 0; width: fit-content;
+  }
+  .cell {
+    width: 64px; height: 64px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 30px; font-weight: 700;
+    cursor: default; position: relative;
+  }
+  .cell.X { color: var(--accent); }
+  .cell.O { color: var(--green); }
+  .cell.playable { cursor: pointer; }
+  .cell.playable:hover { border-color: var(--yellow); }
+  .cell.playable:hover::after { content: attr(data-next); color: var(--yellow); opacity: .45; }
+  .cell.win { border-color: var(--yellow); box-shadow: 0 0 10px rgba(229,192,123,.3); }
+  .cell .pos { position: absolute; top: 3px; left: 6px; font-size: 9px; color: var(--muted); font-weight: 400; }
+  .status { font-size: 13px; }
+  .status .turn { color: var(--yellow); }
+  .status .won { color: var(--green); font-weight: 600; }
+  .movelist { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+  .movelist b.X { color: var(--accent); } .movelist b.O { color: var(--green); }
+
+  /* right column */
+  aside .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 20px;
+  }
+  aside h2 { margin-bottom: 10px; }
+  #feed {
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    max-height: 340px; overflow-y: auto; display: flex; flex-direction: column-reverse;
+  }
+  #feed div { white-space: pre-wrap; }
+  #feed .add { color: var(--green); }
+  #feed .change { color: var(--yellow); }
+  #feed .destroy { color: var(--red); }
+  #feed .time { color: var(--muted); }
+  #feed .hint { color: var(--muted); font-style: italic; }
+
+  .lesson { border-top: 1px solid var(--border); }
+  .lesson summary {
+    cursor: pointer; padding: 10px 0; font-size: 13.5px; user-select: none;
+  }
+  .lesson summary .n {
+    display: inline-flex; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-2); align-items: center; justify-content: center;
+    font-size: 11px; margin-right: 8px; font-family: var(--mono);
+  }
+  .lesson p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 6px 0; }
+  .lesson { padding-bottom: 4px; }
+
+  dialog {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 22px;
+    min-width: 320px;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h3 { margin-bottom: 14px; }
+  dialog label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
+  dialog input, dialog select {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px;
+    font-size: 13.5px;
+  }
+  dialog .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  .oob-note { font-size: 11.5px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+  .oob-note b { color: var(--yellow); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">fake<span>cloud</span></div>
+  <div class="tagline">a pretend cloud for learning Terraform — this console shows the real state of your resources, live</div>
+  <div id="conn">connecting…</div>
+</header>
+
+<main>
+  <div><!-- left column -->
+    <section>
+      <h2>Virtual machines <span class="count" id="vm-count">0</span>
+        <button onclick="vmDialog.showModal()">+ create out-of-band</button>
+      </h2>
+      <div class="cards" id="vms"></div>
+    </section>
+
+    <section>
+      <h2>Tic-tac-toe games <span class="count" id="game-count">0</span>
+        <button onclick="newGame()">+ new game</button>
+      </h2>
+      <div class="game-grid" id="games"></div>
+    </section>
+  </div>
+
+  <aside><!-- right column -->
+    <div class="panel">
+      <h2>State activity</h2>
+      <div id="feed"><div class="hint">Waiting for changes… run <b>terraform apply</b> and watch this feed.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Learn Terraform here</h2>
+
+      <details class="lesson" open>
+        <summary><span class="n">1</span>Point Terraform at fakecloud</summary>
+        <p>Build the provider from <code>provider/</code> and add a dev override so Terraform uses your local build (see the repo README), then configure it:</p>
+        <pre class="code"><span class="kw">provider</span> <span class="str">"fakecloud"</span> {
+  endpoint = <span class="str">"http://localhost:8000"</span>
+}</pre>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">2</span>Create your first resource</summary>
+        <p><b>terraform apply</b> this and watch a card appear on the left — that's Terraform calling the fakecloud API:</p>
+        <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_vm"</span> <span class="str">"web"</span> {
+  name          = <span class="str">"web-1"</span>
+  instance_type = <span class="str">"t2.micro"</span>
+}</pre>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">3</span>Change it, destroy it</summary>
+        <p>Edit <code>instance_type</code> and apply again — the feed shows a yellow <b>~ change</b>. Then <b>terraform destroy</b> and watch the card disappear (red <b>−</b>).</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">4</span>Cause some drift</summary>
+        <p>Use the <b>+ create out-of-band</b> or <b>delete</b> buttons in this console, then run <b>terraform plan</b>. Terraform notices the API state no longer matches its state file — that's drift, and the plan proposes fixing it.</p>
+      </details>
+
+      <details class="lesson">
+        <summary><span class="n">5</span>Side quest: tic-tac-toe over Terraform</summary>
+        <p>Moves are resources. Create a game, share its <code>id</code> with a friend pointing at the same fakecloud, and take turns applying moves — the board updates live here. X goes first; the server rejects out-of-turn applies.</p>
+        <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_move"</span> <span class="str">"m1"</span> {
+  game_id  = 1
+  player   = <span class="str">"X"</span>
+  position = 4  <span class="cm"># center; cells are 0-8, row by row</span>
+}</pre>
+        <p><b>terraform destroy</b> a move to take it back. Deleting the game resets the board for everyone.</p>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<dialog id="vmDialog">
+  <h3>Create VM (outside Terraform)</h3>
+  <label>name</label>
+  <input id="vm-name" placeholder="web-1">
+  <label>instance_type</label>
+  <select id="vm-type">
+    <option>t2.nano</option><option selected>t2.micro</option>
+    <option>t2.large</option><option>m5.24xlarge</option>
+  </select>
+  <div class="oob-note">This calls the API directly, like clicking around a real cloud console.<br><b>Terraform won't know</b> — run <b>terraform plan</b> afterwards to see how it reacts.</div>
+  <div class="row">
+    <button onclick="vmDialog.close()">Cancel</button>
+    <button class="primary" onclick="createVM()">Create</button>
+  </div>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// sanitize a name into a valid terraform label for the snippets
+const label = (name) => (String(name).replace(/[^A-Za-z0-9_-]/g, '_').replace(/^[^A-Za-z_]/, '_$&') || 'example');
+
+let prev = null;          // previous snapshot, for diffing into the feed
+let changedVMs = new Set(); // ids to flash on this render
+
+// ---------- polling ----------
+
+async function tick() {
+  try {
+    const [vms, games] = await Promise.all([
+      fetch('/vms').then(r => r.json()),
+      fetch('/tictactoe/games').then(r => r.json()),
+    ]);
+    const snap = { vms: vms || [], games: games || [] };
+    $('conn').textContent = 'connected';
+    $('conn').className = 'ok';
+    if (prev) diff(prev, snap);
+    render(snap);
+    prev = snap;
+  } catch (e) {
+    $('conn').textContent = 'server unreachable';
+    $('conn').className = 'bad';
+  }
+}
+setInterval(tick, 2000);
+tick();
+
+// ---------- diff → activity feed ----------
+
+function feed(cls, text) {
+  const t = new Date().toTimeString().slice(0, 8);
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = `<span class="time">${t}</span> ${text}`;
+  const f = $('feed');
+  f.prepend(div);
+  while (f.children.length > 200) f.lastChild.remove();
+}
+
+function diff(before, after) {
+  const byId = (list) => Object.fromEntries(list.map(x => [x.id, x]));
+  const [bv, av] = [byId(before.vms), byId(after.vms)];
+
+  for (const vm of after.vms) {
+    const old = bv[vm.id];
+    if (!old) {
+      feed('add', `+ fakecloud_vm <b>${esc(vm.name)}</b> created (id=${vm.id})`);
+      changedVMs.add(vm.id);
+    } else if (old.name !== vm.name || old.instance_type !== vm.instance_type) {
+      if (old.instance_type !== vm.instance_type)
+        feed('change', `~ fakecloud_vm <b>${esc(vm.name)}</b> instance_type: "${esc(old.instance_type)}" → "${esc(vm.instance_type)}"`);
+      if (old.name !== vm.name)
+        feed('change', `~ fakecloud_vm name: "${esc(old.name)}" → "${esc(vm.name)}"`);
+      changedVMs.add(vm.id);
+    }
+  }
+  for (const vm of before.vms)
+    if (!av[vm.id]) feed('destroy', `− fakecloud_vm <b>${esc(vm.name)}</b> destroyed (id=${vm.id})`);
+
+  const [bg, ag] = [byId(before.games), byId(after.games)];
+  for (const g of after.games) {
+    const old = bg[g.id];
+    if (!old) { feed('add', `+ fakecloud_tictactoe_game <b>${esc(g.name)}</b> created (id=${g.id})`); continue; }
+    const oldMoves = byId(old.moves), newMoves = byId(g.moves);
+    for (const m of g.moves)
+      if (!oldMoves[m.id]) feed('add', `+ fakecloud_tictactoe_move <b>${m.player}</b> → cell ${m.position} in ${esc(g.name)}`);
+    for (const m of old.moves)
+      if (!newMoves[m.id]) feed('destroy', `− fakecloud_tictactoe_move <b>${m.player}</b> took back cell ${m.position} in ${esc(g.name)}`);
+    if (!old.winner && g.winner)
+      feed(g.winner === 'draw' ? 'change' : 'add',
+        g.winner === 'draw' ? `~ game <b>${esc(g.name)}</b> ends in a draw` : `★ <b>${g.winner}</b> wins game <b>${esc(g.name)}</b>!`);
+  }
+  for (const g of before.games)
+    if (!ag[g.id]) feed('destroy', `− fakecloud_tictactoe_game <b>${esc(g.name)}</b> destroyed (id=${g.id})`);
+}
+
+// ---------- rendering ----------
+
+function vmHCL(vm) {
+  const l = label(vm.name);
+  return `<span class="cm"># matches the live state of this resource</span>
+<span class="kw">resource</span> <span class="str">"fakecloud_vm"</span> <span class="str">"${esc(l)}"</span> {
+  name          = <span class="str">"${esc(vm.name)}"</span>
+  instance_type = <span class="str">"${esc(vm.instance_type)}"</span>
+}
+
+<span class="cm"># already exists? adopt it into your state:</span>
+<span class="cm"># terraform import fakecloud_vm.${esc(l)} ${vm.id}</span>`;
+}
+
+function renderVMs(vms) {
+  $('vm-count').textContent = vms.length;
+  if (!vms.length) {
+    $('vms').innerHTML = `<div class="empty">No virtual machines yet. Apply one with Terraform:
+      <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_vm"</span> <span class="str">"web"</span> {
+  name          = <span class="str">"web-1"</span>
+  instance_type = <span class="str">"t2.micro"</span>
+}</pre></div>`;
+    return;
+  }
+  $('vms').innerHTML = vms.map(vm => `
+    <div class="card ${changedVMs.has(vm.id) ? 'flash' : ''}">
+      <h3>🖥 ${esc(vm.name)} <span class="rid">id=${vm.id}</span></h3>
+      <div class="attr"><span class="k">instance_type</span><span class="v">"${esc(vm.instance_type)}"</span></div>
+      <div class="attr"><span class="k">status</span><span class="v">"running (pretend)"</span></div>
+      <details class="hcl"><summary>show as Terraform</summary><pre class="code">${vmHCL(vm)}</pre></details>
+      <div class="actions">
+        <button class="danger" onclick="destroyVM(${vm.id}, '${esc(vm.name)}')">delete out-of-band</button>
+      </div>
+    </div>`).join('');
+  changedVMs = new Set();
+}
+
+function winCells(board) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (const l of lines)
+    if (board[l[0]] && board[l[0]] === board[l[1]] && board[l[1]] === board[l[2]]) return new Set(l);
+  return new Set();
+}
+
+function gameHCL(g) {
+  if (g.winner) return `<span class="cm"># game over — reset the board for everyone:</span>
+<span class="cm"># terraform destroy   (or delete the game here)</span>`;
+  const n = g.moves.length + 1;
+  return `<span class="cm"># it's ${g.next_player}'s turn — apply this to play:</span>
+<span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_move"</span> <span class="str">"move_${n}"</span> {
+  game_id  = ${g.id}
+  player   = <span class="str">"${g.next_player}"</span>
+  position = 0  <span class="cm"># pick an empty cell (0-8)</span>
+}`;
+}
+
+function renderGames(games) {
+  $('game-count').textContent = games.length;
+  if (!games.length) {
+    $('games').innerHTML = `<div class="empty">No games yet. Start one here (or via Terraform) and challenge a friend — each move is a Terraform resource.
+      <pre class="code"><span class="kw">resource</span> <span class="str">"fakecloud_tictactoe_game"</span> <span class="str">"duel"</span> {
+  name = <span class="str">"me-vs-you"</span>
+}</pre></div>`;
+    return;
+  }
+  $('games').innerHTML = games.map(g => {
+    const wins = winCells(g.board);
+    const status = g.winner
+      ? (g.winner === 'draw' ? `<span class="won">draw</span> — destroy the game to rematch`
+                             : `<span class="won">${g.winner} wins!</span>`)
+      : `next up: <span class="turn">${g.next_player}</span>`;
+    const cells = g.board.map((c, i) => {
+      const playable = !g.winner && !c;
+      return `<div class="cell ${c} ${playable ? 'playable' : ''} ${wins.has(i) ? 'win' : ''}"
+        data-next="${g.next_player}" ${playable ? `onclick="playMove(${g.id}, ${i}, '${g.next_player}')"` : ''}>
+        <span class="pos">${i}</span>${c}</div>`;
+    }).join('');
+    const moves = g.moves.map(m =>
+      `<div><b class="${m.player}">${m.player}</b> → cell ${m.position} <span style="opacity:.6">(move id=${m.id}, destroy it to undo)</span></div>`).join('');
+    return `
+    <div class="card">
+      <h3>⭕ ${esc(g.name)} <span class="rid">game_id=${g.id}</span></h3>
+      <div class="status">${status}</div>
+      <div class="board">${cells}</div>
+      ${moves ? `<div class="movelist">${moves}</div>` : ''}
+      <details class="hcl"><summary>play via Terraform</summary><pre class="code">${gameHCL(g)}</pre></details>
+      <div class="actions">
+        <button class="danger" onclick="destroyGame(${g.id}, '${esc(g.name)}')">delete game</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function render(snap) {
+  // don't wipe an open HCL <details> mid-read: skip re-render if nothing changed
+  if (prev && JSON.stringify(prev) === JSON.stringify(snap)) return;
+  renderVMs(snap.vms);
+  renderGames(snap.games);
+}
+
+// ---------- out-of-band actions (the drift machine) ----------
+
+async function apiCall(method, path, body) {
+  const resp = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    alert(err.error || `request failed: ${resp.status}`);
+    return null;
+  }
+  return resp.json();
+}
+
+async function createVM() {
+  const name = $('vm-name').value.trim() || 'clicked-in-console';
+  const ok = await apiCall('POST', '/vms', { name, instance_type: $('vm-type').value });
+  if (ok) { vmDialog.close(); $('vm-name').value = ''; tick(); }
+}
+
+async function destroyVM(id, name) {
+  if (!confirm(`Delete "${name}" outside Terraform?\n\nIf Terraform manages it, the next plan will notice it's gone and offer to recreate it. That's drift!`)) return;
+  await apiCall('DELETE', `/vms/${id}`); tick();
+}
+
+async function newGame() {
+  const name = prompt('Game name?', 'friendly-duel');
+  if (!name) return;
+  await apiCall('POST', '/tictactoe/games', { name }); tick();
+}
+
+async function destroyGame(id, name) {
+  if (!confirm(`Delete game "${name}" and all its moves?`)) return;
+  await apiCall('DELETE', `/tictactoe/games/${id}`); tick();
+}
+
+async function playMove(gameId, position, player) {
+  await apiCall('POST', '/tictactoe/moves', { game_id: gameId, player, position });
+  tick();
+}
+</script>
+</body>
+</html>

@@ -23,3 +23,13 @@ go.work
 ## CUSTOM
 
 fakecloud.db
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# local binaries
+/server/fakecloud
+/provider/terraform-provider-fakecloud
